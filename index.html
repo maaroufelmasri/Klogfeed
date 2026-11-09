@@ -86,7 +86,8 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 .sound{position:absolute;left:16px;bottom:calc(var(--safe-b) + 40px);z-index:2;padding:10px 14px;border-radius:999px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);font-weight:600;font-size:14px}
 .vprog{position:absolute;left:0;right:0;bottom:var(--safe-b);height:3px;background:rgba(255,255,255,.15);z-index:2}.vprog i{display:block;height:100%;width:0;background:var(--acc)}
 .card.yt{padding:0!important;justify-content:flex-end;background:#000}
-.card.yt .frame,.card.yt .frame.vert{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;margin:0}
+.card.yt .frame{position:absolute;left:0;right:0;top:50%;transform:translateY(-58%);width:100%;height:auto;aspect-ratio:16/9;margin:0}
+.card.yt .frame.vert{top:calc(var(--safe-t) + 58px);bottom:calc(var(--safe-b) + 8px);left:50%;right:auto;transform:translateX(-50%);height:auto;width:auto;aspect-ratio:9/16;max-width:100%}
 .card.yt .tap{position:absolute;inset:0;z-index:2;display:grid;place-items:center}
 .card.yt .tap .pp{font-size:64px;color:rgba(255,255,255,.85);opacity:0;transition:opacity .2s;text-shadow:0 2px 12px rgba(0,0,0,.6)}
 .card.yt.paused .tap .pp{opacity:1}
@@ -128,7 +129,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v11</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v12</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -475,7 +476,7 @@ function cardHTML(it){
       :`https://www.youtube-nocookie.com/embed/videoseries?list=UU${it.u.slice(2)}&index=${1+Math.floor(Math.random()*40)}&autoplay=1&mute=1&playsinline=1&rel=0`;
     const link=it.v?`https://www.youtube.com/watch?v=${it.v}`:`https://www.youtube.com/channel/${it.u}/videos`;
     return `<section class="card yt" data-k="${esc(id(it))}" data-c="${it.c}" data-src="${esc(src)}" data-v="${it.v||""}" data-u="${it.u||""}" data-q="${esc(it.q||"")}" data-ch="${it.ch||""}">
-      <div class="frame"><div class="ph">▶ Indlæser video…</div><div class="mount"></div></div>
+      <div class="frame${it.short?" vert":""}"><div class="ph">▶ Indlæser video…</div><div class="mount"></div></div>
       <div class="tap"><span class="pp">▶</span></div>
       <div class="meta"><span class="pill">${C.e} ${C.n}${it.short?" · Short":""}</span>
         <h2>${esc(it.t)}</h2><p>${esc(it.n)}${it.d?" · "+esc(it.d):""} · <a href="${link}" target="_blank" rel="noopener">YouTube ↗</a></p></div>
