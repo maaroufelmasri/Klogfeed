@@ -133,11 +133,10 @@ body.fsmode #feed{overflow:hidden}
 #stage.vert{top:calc(var(--safe-t) + 58px);bottom:calc(var(--safe-b) + 8px);left:50%;right:auto;transform:translateX(-50%);width:auto;aspect-ratio:9/16;max-width:100%}
 #stage.on{opacity:1}
 #stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-body.needtap #feed{pointer-events:none}
-body.needtap .top{pointer-events:none}
 body.fsmode #stage:not(.vert){top:50%;left:50%;right:auto;width:100vh;width:100dvh;height:100vw;aspect-ratio:auto;transform:translate(-50%,-50%) rotate(90deg)}
 body.fsmode #stage.vert{inset:0;top:0;left:0;width:100%;height:100%;transform:none;aspect-ratio:auto;max-width:none}
 @media (orientation:landscape){ body.fsmode #stage:not(.vert){transform:none;top:0;left:0;width:100%;height:100%} }
+.card.yt.waiting .meta:before{content:"Tryk på videoen, hvis den ikke starter";display:block;margin-bottom:8px;font-size:13px;font-weight:700;color:#f2c14e}
 .toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 24px);transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;opacity:0;transition:.25s;z-index:30;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%)}
 
@@ -169,7 +168,7 @@ body.fsmode #stage.vert{inset:0;top:0;left:0;width:100%;height:100%;transform:no
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v23</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v24</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -490,7 +489,7 @@ function typeWeight(y){
 function ytId(u){const m=String(u).match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/);return m?m[1]:null}
 function pool(){return [...FILMS, ...YT_SOURCES, ...custom.map(v=>ytId(v.u)?{...v,y:"yt",v:ytId(v.u),n:"Din video",d:v.b||""}:{...v,y:"v"})]}
 function pick(){
-  let items=pool().filter(it=>it.u||!seen.has(id(it)));
+  let items=pool().filter(it=>(apiKey?!it.u:true)&&(it.u||!seen.has(id(it))));
   if(items.length<3){seen=new Set();items=pool()}
   const sc=items.map(it=>{
     let w=(weights[it.c]??0.15)*(it.y==="v"||it.y==="film"?2.5:it.y==="yt"?(it.u?6:4):typeWeight(it.y));
@@ -641,10 +640,10 @@ function loadInto(c){
   checkBlocked(c);
 }
 function checkBlocked(c){ clearTimeout(c._bt); c._bt=setTimeout(()=>{ if(PC!==c) return; let st=-1; try{ st=SP.getPlayerState() }catch(e){}
-  if(st!==1&&st!==3){ c.classList.add("blocked"); document.body.classList.add("needtap"); stage.classList.add("on"); dlog("Autoplay blokeret – tryk på ▶ i videoen") } },3000) }
+  if(st!==1&&st!==3){ c.classList.add("waiting"); stage.classList.add("on"); dlog("Ikke startet endnu (reklame eller blokeret) – tryk på videoen for at starte") } },3500) }
 function leaveCard(c){
   if(document.body.classList.contains("fsmode")) exitFs();
-  c.classList.remove("live","blocked","paused"); document.body.classList.remove("needtap"); clearTimeout(c._bt);
+  c.classList.remove("live","blocked","paused","waiting"); clearTimeout(c._bt);
   if(c._player){ try{ const w=SP.getCurrentTime(), d=SP.getDuration(); if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{ SP.pauseVideo() }catch(e){} c._player=null }
   const v=c.querySelector&&c.querySelector("video"); if(v) v.pause(); c._vis=false; c._userPaused=false; c._triedSound=false;
 }
@@ -661,7 +660,7 @@ function activate(c){
   loadInto(c);
 }
 function onSPState(e){ const c=PC; dlog("Status: "+(SN[e.data]||e.data)); if(!c||!c.classList.contains("yt")) return;
-  if(e.data===1||e.data===3){ c._played=true; c.classList.remove("blocked"); document.body.classList.remove("needtap"); c.classList.add("live"); stage.classList.add("on") }
+  if(e.data===1||e.data===3){ c._played=true; c.classList.remove("blocked","waiting"); document.body.classList.remove("needtap"); c.classList.add("live"); stage.classList.add("on") }
   if(e.data===1 && soundOn && touched && !spNoSound){ try{ if(SP.isMuted()){ c._triedSound=true; SP.unMute(); SP.setVolume(100); dlog("Lyd slået til") } }catch(err){} }
   if(e.data===2){ dlog("  ↳ pause-kilde: "+(c._userPaused?"dit tryk":c._triedSound?"efter lyd slået til (iPhone?)":"ikke appen"));
     if(c._triedSound && !c._userPaused && !spNoSound){ spNoSound=true; dlog("iPhone stoppede lyden – spiller videre uden lyd"); try{ SP.mute(); SP.playVideo() }catch(err){} toast("Tryk på videoen for lyd 🔊") } }
@@ -929,9 +928,7 @@ function learn(card,kind,frac){
 if(!profile||profile.v!==3){applyProfile(JSON.parse(JSON.stringify(CHAT_PROFILE)));seen=new Set();var fromChat=true}
 $("#onb").classList.add("hidden");$("#app").classList.remove("hidden");
 FILMS.forEach(f=>{if(!LS.get("film_"+id(f),false)){$("#feed").insertAdjacentHTML("beforeend",cardHTML(f));seen.add(id(f));recentCats.push(f.c);LS.set("film_"+id(f),true)}});
-fill(6);
-setTimeout(()=>activate(curCard()),300);
-if(apiKey){ ensureBuffer().then(()=>{ const f=$("#feed"); const cur=Math.round(f.scrollTop/f.clientHeight); [...f.children].slice(cur+1).forEach(x=>x.remove()); fill(5) }) }
+if(apiKey){ let done=false; const go=()=>{ if(done) return; done=true; fill(6); setTimeout(()=>activate(curCard()),200) }; ensureBuffer().then(go); setTimeout(go,3500) } else { fill(6); setTimeout(()=>activate(curCard()),300) }
 if(window._keyJustSet) setTimeout(()=>toast("YouTube-nøgle gemt ✅ Finder videoer til dig…"),300);
 if(typeof fromChat!=="undefined")setTimeout(()=>toast("Profil sat op ud fra dine svar ✨"),400);
 </script>
