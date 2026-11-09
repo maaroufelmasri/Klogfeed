@@ -142,7 +142,7 @@ body.fsmode #feed{overflow:hidden}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v18</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v19</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -601,7 +601,7 @@ function plainEmbed(c,why){ c.classList.add("blocked"); dlog("Skifter til simpel
 function setPh(c,t){const ph=c.querySelector(".ph"); if(ph) ph.textContent=t}
 function startPlayer(c){
   if(!window.YT||!YT.Player){ setPh(c,"Venter på YouTube…"); clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(!c._player&&c._vis) plainEmbed(c,"YouTube-script ikke hentet – simpel afspiller") },9000); return }
-  if(c._player) { try{ soundOn?c._player.unMute():c._player.mute(); c._player.playVideo() }catch(e){} return }
+  if(c._player) { try{ const st=c._player.getPlayerState?c._player.getPlayerState():-1; if(st!==1&&st!==3&&!c._userPaused){ if(!(soundOn&&touched&&!c._noSound)) c._player.mute(); c._player.playVideo() } }catch(e){} return }
   const fr=c.querySelector(".frame"); let m=fr.querySelector(".mount"); if(!m){m=document.createElement("div");m.className="mount";fr.appendChild(m)}
   const vars={autoplay:1,mute:1,playsinline:1,rel:0,modestbranding:1,controls:0,fs:0,iv_load_policy:3,disablekb:1};
   const opts={host:"https://www.youtube-nocookie.com",width:"100%",height:"100%",playerVars:vars,events:{
