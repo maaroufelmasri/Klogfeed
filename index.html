@@ -172,9 +172,9 @@ body.fsmode #stage:not(.wide){inset:0;top:0;left:0;width:100%;height:100%;transf
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v27</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v28</small></div>
     <div class="tbtns">
-      <span class="timer" id="timer"></span>
+      <span class="timer" id="timer" style="display:none"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
       <button class="tbtn" id="addBtn" aria-label="Tilføj video">＋</button>
       <button class="tbtn" id="savedBtn" aria-label="Gemte">🔖</button>
@@ -440,7 +440,7 @@ function scoreCats(a){const s={};Object.keys(CATS).forEach(k=>s[k]=0);
   ["hooks","eras","goals"].forEach(q=>(a[q]||[]).forEach(v=>(MAP[q][v]||[]).forEach(c=>s[c]++)));return s}
 // Profil ud fra svarene i chatten
 const CHAT_PROFILE={v:3,hooks:["magt","ekstrem","myst","hvordan"],eras:["old","y1900","nu"],goals:["klog","under","motiv","nyheder"],
-  cats:["antik","krig","bander","koldkrig","geo","overlev","sport","kultur","okonomi","sund","rum","videnskab","psyk","motiv","filo"],limit:20,lang:"en",boost:{krig:2,antik:2,bander:3,sport:2,kultur:1.5,okonomi:1}};
+  cats:["antik","krig","bander","koldkrig","geo","overlev","sport","kultur","okonomi","sund","rum","videnskab","psyk","motiv","filo"],limit:0,lang:"en",boost:{krig:2,antik:2,bander:3,sport:2,kultur:1.5,okonomi:1}};
 let qi=0, ans={};
 function startQuiz(prefill){ans=prefill?JSON.parse(JSON.stringify(prefill)):{hooks:[],eras:[],goals:[],cats:[]};ans._touched=!!prefill;qi=0;$("#app").classList.add("hidden");$("#onb").classList.remove("hidden");renderQ()}
 function renderQ(){
@@ -578,7 +578,7 @@ function fill(n){
   LS.set("seen",[...seen]); if(apiKey){ saveSmart(); ensureBuffer() }
 }
 function bindStop(){const b=$("#moreAnyway");if(b)b.onclick=()=>{limitOverride=true;usage.s=Math.max(0,profile.limit*60-300);stopShown=false;b.closest(".card").remove();fill(4)}}
-function overLimit(){return profile.limit>0 && usage.s>=profile.limit*60 && !limitOverride}
+function overLimit(){return false}
 
 $("#feed").addEventListener("scroll",()=>{
   const f=$("#feed"); if(f.scrollTop+f.clientHeight*3>f.scrollHeight) fill(4);
@@ -929,6 +929,7 @@ function learn(card,kind,frac){
 }
 
 /* ================== Start ================== */
+if(profile&&profile.limit){ profile.limit=0; LS.set("profile",profile) }
 if(!profile||profile.v!==3){applyProfile(JSON.parse(JSON.stringify(CHAT_PROFILE)));seen=new Set();var fromChat=true}
 $("#onb").classList.add("hidden");$("#app").classList.remove("hidden");
 FILMS.forEach(f=>{if(!LS.get("film_"+id(f),false)){$("#feed").insertAdjacentHTML("beforeend",cardHTML(f));seen.add(id(f));recentCats.push(f.c);LS.set("film_"+id(f),true)}});
