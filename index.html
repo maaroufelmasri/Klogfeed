@@ -73,7 +73,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 .card.yt{padding:calc(var(--safe-t) + 64px) 0 calc(var(--safe-b) + 24px);justify-content:center;background:#07070b}
 .card.yt .frame{position:relative;width:100%;aspect-ratio:16/9;background:#000}
 .card.yt .frame.vert{aspect-ratio:9/16;width:auto;height:min(68vh,calc(100vw*16/9));margin:0 auto}
-.card.yt .mount,.card.yt .frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.card.yt .mount,.card.yt .frame iframe,.card.yt iframe.plain{position:absolute;inset:0;width:100%;height:100%;border:0}
 .card.yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .card.yt .meta{padding:18px 78px 0 18px}
 .card.yt .meta .pill{display:inline-block}
@@ -116,7 +116,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v6 · smart</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v8 · debug-klar</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔇</button>
@@ -132,6 +132,14 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <div class="toast" id="toast"></div>
 
 <script>
+/* ================== Fejlfinding (?debug=1) ================== */
+const DBG=/[?&]debug/.test(location.search); const DLOG=[];
+function dlog(m){ const t=new Date().toTimeString().slice(0,8); DLOG.push(t+" "+m); if(DLOG.length>60) DLOG.shift(); const b=document.getElementById("dbg"); if(b) b.textContent=DLOG.slice(-18).join("\n") }
+window.addEventListener("error",e=>dlog("JS-FEJL: "+e.message+" @"+(e.lineno||"?")));
+window.addEventListener("unhandledrejection",e=>dlog("PROMISE-FEJL: "+(e.reason&&e.reason.message||e.reason)));
+if(DBG) document.addEventListener("DOMContentLoaded",()=>{ const d=document.createElement("pre"); d.id="dbg";
+  d.style.cssText="position:fixed;left:6px;right:6px;bottom:6px;max-height:42vh;overflow:auto;z-index:99;background:rgba(0,0,0,.85);color:#7CFC9A;font:11px/1.35 monospace;padding:8px;border-radius:8px;white-space:pre-wrap;pointer-events:none";
+  document.body.appendChild(d); dlog("Debug til. UA: "+navigator.userAgent.slice(0,80)); dlog("Strømspare? Autoplay-test kommer…") });
 /* ================== Kategorier ================== */
 const CATS = {
   antik:    {n:"Romerriget & oldtiden",e:"🏛️", g:["#5b3a1a","#1a1208"]},
@@ -550,30 +558,42 @@ new MutationObserver(()=>document.querySelectorAll(".card.film:not([data-o])").f
 
 const BAD=/trailer|teaser|anniversary|announce|giveaway|sale\b|merch|livestream|\blive\b|q&a|\bgame\b|gameplay|master of command|fire & maneuver|patreon|sponsor|update video|channel update|reveal/i;
 let ytReady=false; const ytQueue=[];
-window.onYouTubeIframeAPIReady=()=>{ytReady=true;ytQueue.splice(0).forEach(f=>f())};
-(function(){const t=document.createElement("script");t.src="https://www.youtube.com/iframe_api";document.head.appendChild(t)})();
+window.onYouTubeIframeAPIReady=()=>{dlog("onYouTubeIframeAPIReady ✓");ytReady=true;ytQueue.splice(0).forEach(f=>f())};
+(function(){const t=document.createElement("script");t.src="https://www.youtube.com/iframe_api";t.onload=()=>dlog("iframe_api script hentet");t.onerror=()=>dlog("FEJL: kunne ikke hente youtube.com/iframe_api (blokeret?)");document.head.appendChild(t);setTimeout(()=>dlog("Efter 5s: YT="+(!!window.YT)+" YT.Player="+(!!(window.YT&&YT.Player))+" ready="+ytReady),5000)})();
+function plainEmbed(c,why){ dlog("Skifter til simpel afspiller: "+(why||""));
+  const fr=c.querySelector(".frame"); if(fr.querySelector("iframe.plain")) return;
+  const v=c.dataset.v, src=v?`https://www.youtube.com/embed/${v}?autoplay=1&mute=1&playsinline=1&rel=0`
+    :`https://www.youtube.com/embed/videoseries?list=UU${c.dataset.u.slice(2)}&autoplay=1&mute=1&playsinline=1&rel=0`;
+  try{ if(c._player){c._player.destroy();c._player=null} }catch(e){}
+  fr.innerHTML=`<div class="ph">${why||""}</div><iframe class="plain" src="${src}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+}
+function setPh(c,t){const ph=c.querySelector(".ph"); if(ph) ph.textContent=t}
 function startPlayer(c){
+  if(!window.YT||!YT.Player){ setPh(c,"Venter på YouTube…"); clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(!c._player&&c._vis) plainEmbed(c,"(simpel afspiller)") },4000); return }
   if(c._player) { try{ soundOn?c._player.unMute():c._player.mute(); c._player.playVideo() }catch(e){} return }
   const fr=c.querySelector(".frame"); let m=fr.querySelector(".mount"); if(!m){m=document.createElement("div");m.className="mount";fr.appendChild(m)}
   const vars={autoplay:1,mute:soundOn?0:1,playsinline:1,rel:0,modestbranding:1,controls:1};
   const opts={host:"https://www.youtube-nocookie.com",width:"100%",height:"100%",playerVars:vars,events:{
-    onReady:e=>{ if(soundOn)e.target.unMute(); else e.target.mute(); e.target.playVideo(); fr.querySelector(".ph")&&(fr.querySelector(".ph").style.display="none") },
-    onStateChange:e=>{
+    onReady:e=>{ dlog("onReady ✓ – kalder playVideo (lyd "+(soundOn?"til":"fra")+")"); c._played=c._played||false; if(soundOn)e.target.unMute(); else e.target.mute(); e.target.playVideo(); fr.querySelector(".ph")&&(fr.querySelector(".ph").style.display="none") },
+    onStateChange:e=>{ dlog("Status: "+({"-1":"ikke startet","0":"slut","1":"spiller ✓","2":"pause","3":"buffer","5":"klar (cued)"}[e.data]||e.data));
+      if(e.data===1||e.data===3) c._played=true;
       if(e.data===1){ try{ const t=(e.target.getVideoData().title||"");
         if(BAD.test(t)){ if(c.dataset.u) e.target.nextVideo(); else next(c) }
         else { const h=c.querySelector(".meta h2"); if(c.dataset.u&&h&&t) h.textContent=t } }catch(err){} }
       if(e.data===0){ if(c.dataset.q) learn(c,"watch",1.2); next(c) } },
-    onError:()=>{ fr.querySelector(".ph").textContent="Videoen kunne ikke afspilles – swipe videre"; }
+    onError:(e)=>{ dlog("YouTube-fejl kode "+e.data+({2:" (ugyldigt id)",5:" (HTML5-fejl)",100:" (findes ikke/privat)",101:" (må ikke indlejres)",150:" (må ikke indlejres)",153:" (mangler referrer/origin)"}[e.data]||"")); fr.querySelector(".ph").textContent="Videoen kunne ikke afspilles – swipe videre"; }
   }};
   if(c.dataset.v) opts.videoId=c.dataset.v;
   else { vars.listType="playlist"; vars.list="UU"+c.dataset.u.slice(2); vars.index=Math.floor(Math.random()*40) }
-  c._player=new YT.Player(m,opts);
+  setPh(c,"Starter video…"); dlog("Opretter afspiller for "+(c.dataset.v||("kanal "+c.dataset.u)));
+  try{ c._player=new YT.Player(m,opts) }catch(err){ plainEmbed(c,"Fejl: "+err.message); return }
+  clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(c._vis && !c._played) plainEmbed(c,"(simpel afspiller)") },6000);
 }
-function stopPlayer(c){ if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
+function stopPlayer(c){ c._played=false; if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
 const ytio=new IntersectionObserver(es=>es.forEach(e=>{
   const c=e.target;
-  if(e.isIntersecting&&e.intersectionRatio>0.6){ ytReady?startPlayer(c):ytQueue.push(()=>startPlayer(c)) }
-  else if(!e.isIntersecting) stopPlayer(c);
+  if(e.isIntersecting&&e.intersectionRatio>0.6){ c._vis=true; if(ytReady) startPlayer(c); else { startPlayer(c); ytQueue.push(()=>{ if(c._vis&&!c._player&&!c.querySelector('iframe.plain')) startPlayer(c) }) } }
+  else if(!e.isIntersecting){ c._vis=false; clearTimeout(c._fb); stopPlayer(c); const pf=c.querySelector('iframe.plain'); if(pf){ c.querySelector('.frame').innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
 }),{threshold:[0,0.6]});
 let soundOn=false;
 function setSound(on){ soundOn=on; const b=document.getElementById("soundBtn"); if(b) b.textContent=on?"🔊":"🔇";
@@ -686,7 +706,7 @@ function queriesFor(c){return [...(QUERIES[c]||[]),...(dynQ[c]||[])]}
 function durParam(){ if(lenPref==="short") return "short"; if(lenPref==="long") return Math.random()<.5?"medium":"long"; return Math.random()<.55?"short":"medium" }
 async function ytFetch(path,params){
   const u="https://www.googleapis.com/youtube/v3/"+path+"?"+new URLSearchParams({...params,key:apiKey});
-  const r=await fetch(u); const j=await r.json(); if(j.error) throw new Error(j.error.message||"API-fejl"); return j;
+  const r=await fetch(u); const j=await r.json(); if(j.error){ dlog("API-FEJL "+path+": "+j.error.message); throw new Error(j.error.message||"API-fejl") } dlog("API "+path+" ok ("+(j.items||[]).length+")"); return j;
 }
 async function fetchQuery(c,q){
   const dur=durParam(), ck=q+"|"+dur;
