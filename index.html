@@ -116,7 +116,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v5 · smart</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v6 · smart</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔇</button>
@@ -669,6 +669,8 @@ const QUERIES={
  natur:["nature documentary animals","octopus intelligence"],
  opfind:["greatest inventions history","Niels Bohr story"],
 };
+(function(){ try{ const P=new URLSearchParams(location.search); const k=P.get("key");
+  if(k&&/^AIza[\w-]{30,}$/.test(k)){ LS.set("ytkey",k); if(!localStorage.getItem("klog_lenpref")) LS.set("lenpref","short"); P.delete("key"); history.replaceState(null,"",location.pathname+(P.toString()?"?"+P:"")); window._keyJustSet=true } }catch(e){} })();
 let apiKey=LS.get("ytkey",""), lenPref=LS.get("lenpref","mix");
 let qw=LS.get("qw",{}), chAff=LS.get("chaff",{}), dynQ=LS.get("dynq",{}), qcache=LS.get("qcache",{});
 let vseen=new Set(LS.get("vseen",[])); const cand={}; let fetching=false; const RENDERED={};
@@ -747,6 +749,7 @@ $("#onb").classList.add("hidden");$("#app").classList.remove("hidden");
 FILMS.forEach(f=>{if(!LS.get("film_"+id(f),false)){$("#feed").insertAdjacentHTML("beforeend",cardHTML(f));seen.add(id(f));recentCats.push(f.c);LS.set("film_"+id(f),true)}});
 fill(6);
 if(apiKey){ ensureBuffer().then(()=>{ const f=$("#feed"); const cur=Math.round(f.scrollTop/f.clientHeight); [...f.children].slice(cur+1).forEach(x=>x.remove()); fill(5) }) }
+if(window._keyJustSet) setTimeout(()=>toast("YouTube-nøgle gemt ✅ Finder videoer til dig…"),300);
 if(typeof fromChat!=="undefined")setTimeout(()=>toast("Profil sat op ud fra dine svar ✨"),400);
 </script>
 </body>
