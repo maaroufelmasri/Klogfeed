@@ -132,7 +132,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v16</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v17</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -562,7 +562,7 @@ const io=new IntersectionObserver(es=>es.forEach(e=>{
   const v=e.target.querySelector("video"); if(!v)return;
   if(e.isIntersecting&&e.intersectionRatio>0.6){v.muted=!soundOn;v.currentTime=0;v.play().catch(()=>{v.muted=true;v.play().catch(()=>{})})}
   else v.pause();
-}),{threshold:[0,0.6,1]});
+}),{threshold:[0,0.5,0.6,1]});
 new MutationObserver(()=>document.querySelectorAll(".card.film:not([data-o])").forEach(c=>{
   c.dataset.o=1; io.observe(c); const v=c.querySelector("video"), bar=c.querySelector(".vprog i"), sb=c.querySelector(".sound");
   v.addEventListener("timeupdate",()=>{bar.style.width=(v.currentTime/v.duration*100||0)+"%"});
@@ -611,11 +611,22 @@ function startPlayer(c){
   clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(c._vis && !c._ready) plainEmbed(c,"YouTube svarede ikke – simpel afspiller") },9000);
 }
 function stopPlayer(c){ c._played=false; c._ready=false; c._triedSound=false; c._noSound=false; c._userPaused=false; c.classList.remove("blocked"); if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
+function pauseCard(c){ try{ if(c._player&&c._player.pauseVideo) c._player.pauseVideo() }catch(e){} const v=c.querySelector&&c.querySelector("video"); if(v) v.pause() }
+let _scrollT=null, _lastCur=null;
+document.getElementById("feed").addEventListener("scroll",()=>{
+  const cur=curCard();
+  if(_lastCur&&_lastCur!==cur){ pauseCard(_lastCur) }
+  clearTimeout(_scrollT); _scrollT=setTimeout(()=>{ const c=curCard(); _lastCur=c;
+    document.querySelectorAll(".card.yt,.card.film").forEach(x=>{ if(x!==c) pauseCard(x) });
+    if(c&&c.classList.contains("yt")){ if(c._player&&c._player.playVideo&&!c._userPaused){ try{ c._player.playVideo() }catch(e){} } else if(!c._player){ c._vis=true; startPlayer(c) } }
+  },140);
+},{passive:true});
 const ytio=new IntersectionObserver(es=>es.forEach(e=>{
   const c=e.target;
   if(e.isIntersecting&&e.intersectionRatio>0.6){ c._vis=true; if(ytReady) startPlayer(c); else { startPlayer(c); ytQueue.push(()=>{ if(c._vis&&!c._player&&!c.querySelector('iframe.plain')) startPlayer(c) }) } }
+  else if(e.intersectionRatio<0.5 && e.isIntersecting){ c._vis=false; pauseCard(c) }
   else if(!e.isIntersecting){ c._vis=false; clearTimeout(c._fb); stopPlayer(c); const pf=c.querySelector('iframe.plain'); if(pf){ c.querySelector('.frame').innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
-}),{threshold:[0,0.6]});
+}),{threshold:[0,0.3,0.5,0.6,0.9]});
 let soundOn=LS.get("sound",true), touched=false;
 function curCard(){ const f=document.getElementById("feed"); return f.children[Math.round(f.scrollTop/f.clientHeight)] }
 function unmuteCurrent(){ const c=curCard(); if(!c) return;
