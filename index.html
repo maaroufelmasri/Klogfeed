@@ -106,7 +106,7 @@ body.fsmode #feed{overflow:hidden}
 .card.yt.fs{z-index:10}
 .card.yt.fs .meta,.card.yt.fs .side>button:not([data-a=fs]){display:none}
 .card.yt.fs .side{top:calc(var(--safe-t) + 10px);bottom:auto;right:10px}
-.card.yt.fs .frame:not(.vert){position:fixed;top:50%;left:50%;width:100vh;width:100dvh;height:100vw;aspect-ratio:auto;transform:translate(-50%,-50%) rotate(90deg);z-index:5}
+.card.yt.fs[data-orient=h] .frame{position:fixed;top:50%;left:50%;width:100vh;width:100dvh;height:100vw;aspect-ratio:auto;transform:translate(-50%,-50%) rotate(90deg);z-index:5}
 .card.yt.fs .frame.vert{position:fixed;inset:0;width:100%;height:100%;transform:none;aspect-ratio:auto;z-index:5;top:0;bottom:0;left:0;right:0;max-width:none}
 .card.yt.fs .tap{position:fixed;z-index:6}
 .card.yt.fs .side{position:fixed;z-index:7}
@@ -137,9 +137,9 @@ body.fsmode #feed{overflow:hidden}
 .card.yt .frame .thumb{object-fit:contain}
 #stage,#stage.vert{top:calc(var(--safe-t) + 54px);bottom:0;left:0;right:0;width:auto;height:auto;aspect-ratio:auto;transform:none;max-width:none}
 body.fsmode .card.yt .frame{top:0!important}
-body.fsmode #stage:not(.vert){top:50%;left:50%;right:auto;width:100vh;width:100dvh;height:100vw;aspect-ratio:auto;transform:translate(-50%,-50%) rotate(90deg)}
-body.fsmode #stage.vert{inset:0;top:0;left:0;width:100%;height:100%;transform:none;aspect-ratio:auto;max-width:none}
-@media (orientation:landscape){ body.fsmode #stage:not(.vert){transform:none;top:0;left:0;width:100%;height:100%} }
+body.fsmode #stage.wide{top:50%;left:50%;right:auto;width:100vh;width:100dvh;height:100vw;aspect-ratio:auto;transform:translate(-50%,-50%) rotate(90deg)}
+body.fsmode #stage:not(.wide){inset:0;top:0;left:0;width:100%;height:100%;transform:none;aspect-ratio:auto;max-width:none}
+@media (orientation:landscape){ body.fsmode #stage.wide{transform:none;top:0;left:0;width:100%;height:100%} }
 .card.yt.waiting .meta:before{content:"Tryk på videoen, hvis den ikke starter";display:block;margin-bottom:8px;font-size:13px;font-weight:700;color:#f2c14e}
 .toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 24px);transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;opacity:0;transition:.25s;z-index:30;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%)}
@@ -172,7 +172,7 @@ body.fsmode #stage.vert{inset:0;top:0;left:0;width:100%;height:100%;transform:no
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v26</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v27</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -518,7 +518,7 @@ function cardHTML(it){
     const src=it.v?`https://www.youtube-nocookie.com/embed/${it.v}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1`
       :`https://www.youtube-nocookie.com/embed/videoseries?list=UU${it.u.slice(2)}&index=${1+Math.floor(Math.random()*40)}&autoplay=1&mute=1&playsinline=1&rel=0`;
     const link=it.v?`https://www.youtube.com/watch?v=${it.v}`:`https://www.youtube.com/channel/${it.u}/videos`;
-    return `<section class="card yt" data-k="${esc(id(it))}" data-c="${it.c}" data-src="${esc(src)}" data-v="${it.v||""}" data-u="${it.u||""}" data-q="${esc(it.q||"")}" data-ch="${it.ch||""}">
+    return `<section class="card yt" data-k="${esc(id(it))}" data-c="${it.c}" data-src="${esc(src)}" data-v="${it.v||""}" data-u="${it.u||""}" data-q="${esc(it.q||"")}" data-ch="${it.ch||""}" data-orient="${it.orient||""}">
       <div class="frame${it.short?" vert":""}">${it.v?`<img class="thumb" src="https://i.ytimg.com/vi/${it.v}/hqdefault.jpg" alt="" loading="lazy">`:""}<div class="ph">${it.v?"":"▶ Indlæser video…"}</div></div>
       <div class="tap"><span class="pp">▶</span></div>
       <div class="meta"><span class="pill">${C.e} ${C.n}${it.short?" · Short":""}</span>
@@ -655,7 +655,7 @@ function activate(c){
   if(!c) return;
   if(PC&&PC!==c) leaveCard(PC);
   if(!c.classList.contains("yt")){ stage.classList.remove("on"); try{ SP&&SP.pauseVideo() }catch(e){} PC=c; return }
-  stage.classList.toggle("vert", c.querySelector(".frame").classList.contains("vert"));
+  stage.classList.toggle("vert", c.querySelector(".frame").classList.contains("vert")); stage.classList.toggle("wide", c.dataset.orient==="h");
   if(PC===c && c._player){ if(!c._userPaused){ try{ SP.playVideo() }catch(e){} } c.classList.add("live"); stage.classList.add("on"); return }
   PC=c; c._vis=true; c._played=false;
   if(!window.YT||!YT.Player){ ytQueue.push(()=>activate(curCard())); return }
@@ -846,7 +846,7 @@ function langOK(x,lenient){
 }
 function regionOK(cd){ const r=cd&&cd.regionRestriction; if(!r) return true; if(r.blocked&&r.blocked.includes("DK")) return false; if(r.allowed&&!r.allowed.includes("DK")) return false; return true }
 function mapVideos(v,lenient){
-  return v.items.filter(x=>x.status?x.status.embeddable!==false:true).map(x=>({v:x.id,t:x.snippet.title,al:x.snippet.defaultAudioLanguage||"",dl:x.snippet.defaultLanguage||"",n:x.snippet.channelTitle,ch:x.snippet.channelId,views:+(x.statistics.viewCount||0),likes:+(x.statistics.likeCount||0),sec:isoDur(x.contentDetails.duration),reg:regionOK(x.contentDetails),vert:!!(x.player&&+x.player.embedHeight>+x.player.embedWidth)}))
+  return v.items.filter(x=>x.status?x.status.embeddable!==false:true).map(x=>({v:x.id,t:x.snippet.title,al:x.snippet.defaultAudioLanguage||"",dl:x.snippet.defaultLanguage||"",n:x.snippet.channelTitle,ch:x.snippet.channelId,views:+(x.statistics.viewCount||0),likes:+(x.statistics.likeCount||0),sec:isoDur(x.contentDetails.duration),reg:regionOK(x.contentDetails),vert:(x.player&&x.player.embedHeight&&x.player.embedWidth)?(+x.player.embedHeight>+x.player.embedWidth):null}))
     .filter(x=>x.reg && langOK(x,lenient) && x.views>=((x.sec<=70||/#shorts?\b/i.test(x.t))?(x.al.startsWith("da")?20000:100000):(x.al.startsWith("da")?5000:40000)) && !BAD.test(x.t) && x.sec>=15 && x.sec<=(lenPref==="long"?5400:1500));
 }
 let knownCh=LS.get("knownch",{});   // kategori -> {kanalId: score}
@@ -854,7 +854,7 @@ function addKnown(c,items){ const k=knownCh[c]=knownCh[c]||{}; items.forEach(x=>
 function quotaBlocked(){ return LS.get("qblock","")===today2 || quota.n>=40 }
 function pushCand(c,items,q){
   const fresh=items.filter(x=>!vseen.has(x.v)&&(chAff[x.ch]||0)>-3&&!(cand[c]||[]).some(y=>y.v===x.v));
-  fresh.forEach(x=>{x.c=c;x.q=q;x.y="yt";x.short=x.vert||x.sec<=62||(x.sec<=185&&/#shorts?\b/i.test(x.t));x.d=fmtN(x.views)+" visninger · "+fmtD(x.sec)});
+  fresh.forEach(x=>{x.c=c;x.q=q;x.y="yt";x.short=x.vert===true||(x.vert==null&&(x.sec<=62||(x.sec<=185&&/#shorts?\b/i.test(x.t))));x.orient=x.vert===true?"v":x.vert===false?"h":"";x.d=fmtN(x.views)+" visninger · "+fmtD(x.sec)});
   (cand[c]=cand[c]||[]).push(...fresh); return fresh.length;
 }
 async function fetchQuery(c,q){
