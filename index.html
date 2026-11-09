@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KlogFeed</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KlogFeed">
+<meta name="theme-color" content="#0b0b10">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0b10;--fg:#f4f1ea;--mut:#a9a6b3;--card:#16161f;--line:#2a2a36;--acc:#f2c14e;--safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+h1,h2,.serif{font-family:Fraunces,Georgia,serif}
+.hidden{display:none!important}
+
+/* ---------- Onboarding ---------- */
+#onb{position:fixed;inset:0;overflow-y:auto;padding:calc(var(--safe-t) + 28px) 22px calc(var(--safe-b) + 110px);background:radial-gradient(120% 60% at 50% 0%,#2a2140 0%,var(--bg) 60%)}
+.step{max-width:560px;margin:0 auto;animation:in .35s ease}
+@keyframes in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.prog{display:flex;gap:6px;max-width:560px;margin:0 auto 26px}
+.prog i{flex:1;height:4px;border-radius:4px;background:var(--line)}
+.prog i.on{background:var(--acc)}
+.step h1{font-size:30px;line-height:1.15;margin-bottom:10px}
+.step p.sub{color:var(--mut);font-size:15px;line-height:1.5;margin-bottom:22px}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{padding:12px 15px;border-radius:999px;background:var(--card);border:1.5px solid var(--line);font-size:15px;font-weight:500;transition:.15s}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#1b1607}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{text-align:left;padding:16px 18px;border-radius:16px;background:var(--card);border:1.5px solid var(--line);transition:.15s}
+.opt b{display:block;font-size:16px;margin-bottom:3px}
+.opt span{color:var(--mut);font-size:14px}
+.opt.on{border-color:var(--acc);background:#221d10}
+.navbar{position:fixed;left:0;right:0;bottom:0;padding:14px 22px calc(var(--safe-b) + 14px);background:linear-gradient(transparent,var(--bg) 35%);display:flex;gap:10px;justify-content:center}
+.navbar .in{display:flex;gap:10px;width:100%;max-width:560px}
+.btn{flex:1;padding:16px;border-radius:14px;font-weight:700;font-size:16px;background:var(--acc);color:#1b1607}
+.btn:disabled{opacity:.35}
+.btn.ghost{flex:0 0 auto;background:var(--card);color:var(--fg);border:1px solid var(--line);padding:16px 20px}
+.count{color:var(--mut);font-size:13px;margin-top:14px}
+
+/* ---------- Feed ---------- */
+#app{position:fixed;inset:0}
+#feed{height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none}
+#feed::-webkit-scrollbar{display:none}
+.card{height:100%;scroll-snap-align:start;scroll-snap-stop:always;position:relative;display:flex;flex-direction:column;justify-content:flex-end;padding:calc(var(--safe-t) + 70px) 78px calc(var(--safe-b) + 34px) 22px;overflow:hidden}
+.card .bgemoji{position:absolute;top:calc(var(--safe-t) + 70px);right:-20px;font-size:190px;opacity:.16;transform:rotate(-8deg);pointer-events:none;user-select:none}
+.card .pill{align-self:flex-start;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:6px 11px;border-radius:999px;background:rgba(0,0,0,.35);backdrop-filter:blur(6px);margin-bottom:14px}
+.card h2{font-size:clamp(26px,7.4vw,40px);line-height:1.12;margin-bottom:14px;text-wrap:balance}
+.card .body{font-size:17px;line-height:1.55;color:rgba(255,255,255,.9);max-width:620px}
+.card .more{margin-top:14px;font-size:15px;line-height:1.5;color:rgba(255,255,255,.75);border-left:3px solid rgba(255,255,255,.35);padding-left:12px;max-width:620px}
+.card .cta{margin-top:20px;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:12px 16px;border-radius:12px;background:#fff;color:#111;font-weight:700;font-size:15px;text-decoration:none}
+.card .note{font-size:12px;color:rgba(255,255,255,.55);margin-top:8px}
+.side{position:absolute;right:12px;bottom:calc(var(--safe-b) + 40px);display:flex;flex-direction:column;gap:18px;align-items:center}
+.side button{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:600;color:rgba(255,255,255,.85)}
+.side .ic{width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,.35);backdrop-filter:blur(6px);display:grid;place-items:center;font-size:22px;transition:transform .15s}
+.side button:active .ic{transform:scale(.88)}
+.side .on .ic{background:var(--acc)}
+.top{position:fixed;top:0;left:0;right:0;padding:calc(var(--safe-t) + 12px) 16px 12px;display:flex;align-items:center;justify-content:space-between;z-index:5;background:linear-gradient(rgba(0,0,0,.55),transparent);pointer-events:none}
+.top > *{pointer-events:auto}
+.logo{font-family:Fraunces,serif;font-weight:800;font-size:22px}
+.logo span{color:var(--acc)}
+.tbtns{display:flex;gap:8px}
+.tbtn{width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.4);backdrop-filter:blur(6px);display:grid;place-items:center;font-size:18px}
+.timer{font-size:12px;font-weight:600;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.4);backdrop-filter:blur(6px);color:var(--mut)}
+.card.yt{padding:calc(var(--safe-t) + 64px) 0 calc(var(--safe-b) + 24px);justify-content:center;background:#07070b}
+.card.yt .frame{position:relative;width:100%;aspect-ratio:16/9;background:#000}
+.card.yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.card.yt .meta{padding:18px 78px 0 18px}
+.card.yt .meta .pill{display:inline-block}
+.card.yt .meta h2{font-size:24px;margin:10px 0 6px}
+.card.yt .meta p{color:var(--mut);font-size:14px;line-height:1.5}
+.card.yt .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--mut);font-size:14px}
+.card.film{padding:0;justify-content:center;background:#000}
+.card.film video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.card.film .side{z-index:2}
+.sound{position:absolute;left:16px;bottom:calc(var(--safe-b) + 40px);z-index:2;padding:10px 14px;border-radius:999px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);font-weight:600;font-size:14px}
+.vprog{position:absolute;left:0;right:0;bottom:var(--safe-b);height:3px;background:rgba(255,255,255,.15);z-index:2}.vprog i{display:block;height:100%;width:0;background:var(--acc)}
+.toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 24px);transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;opacity:0;transition:.25s;z-index:30;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+/* ---------- Sheets ---------- */
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
+.sheet .panel{width:100%;max-width:600px;max-height:86vh;overflow-y:auto;background:#14141c;border-radius:22px 22px 0 0;padding:22px 20px calc(var(--safe-b) + 24px);animation:up .25s ease}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.panel h3{font-family:Fraunces,serif;font-size:22px;margin-bottom:6px}
+.panel .sub{color:var(--mut);font-size:14px;margin-bottom:16px;line-height:1.5}
+.panel label{display:block;font-size:13px;color:var(--mut);margin:12px 0 6px}
+.panel input,.panel select{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit;font-size:16px}
+.row{display:flex;gap:10px;margin-top:18px}
+.saved-item{padding:14px 0;border-bottom:1px solid var(--line)}
+.saved-item b{display:block;margin-bottom:3px}
+.saved-item small{color:var(--mut)}
+.saved-item a{color:var(--acc);font-size:14px}
+.bars{display:flex;flex-direction:column;gap:8px;margin:8px 0 6px}
+.bar{display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:center;font-size:13px}
+.bar div{height:8px;border-radius:8px;background:var(--line);overflow:hidden}
+.bar div i{display:block;height:100%;background:var(--acc)}
+.linkbtn{color:var(--acc);font-weight:600;font-size:15px;padding:8px 0}
+</style>
+</head>
+<body>
+
+<!-- Onboarding -->
+<div id="onb"></div>
+
+<!-- App -->
+<div id="app" class="hidden">
+  <div class="top">
+    <div class="logo">Klog<span>Feed</span></div>
+    <div class="tbtns">
+      <span class="timer" id="timer"></span>
+      <button class="tbtn" id="addBtn" aria-label="Tilføj video">＋</button>
+      <button class="tbtn" id="savedBtn" aria-label="Gemte">🔖</button>
+      <button class="tbtn" id="profBtn" aria-label="Profil">⚙︎</button>
+    </div>
+  </div>
+  <div id="feed"></div>
+</div>
+
+<div id="sheet" class="sheet hidden"><div class="panel" id="panel"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================== Kategorier ================== */
+const CATS = {
+  antik:    {n:"Romerriget & oldtiden",e:"🏛️", g:["#5b3a1a","#1a1208"]},
+  krig:     {n:"2. verdenskrig",      e:"🎖️", g:["#3d3d2e","#121210"]},
+  koldkrig: {n:"Kold krig & spioner", e:"🕵️", g:["#2b2b3d","#0b0b12"]},
+  bander:   {n:"Bander, narko & kriminalitet",e:"🚨", g:["#4a1a1a","#140606"]},
+  geo:      {n:"Konflikter i dag",    e:"🌍", g:["#1a3a4a","#061016"]},
+  overlev:  {n:"Overlevelse & ekstremt",e:"🧗", g:["#4a3a1a","#141006"]},
+  sport:    {n:"Kampsport & sportslegender",e:"🥊", g:["#4a1a2a","#14060b"]},
+  kultur:   {n:"Hiphop, film & kultur",e:"🎧", g:["#2a1a4a","#0b0614"]},
+  viking:   {n:"Vikinger & Danmark",  e:"⚔️", g:["#1f3b4d","#0a1418"]},
+  middel:   {n:"Middelalderen",       e:"🏰", g:["#4a2335","#160a10"]},
+  rum:      {n:"Rummet",              e:"🪐", g:["#1b1b4a","#05050f"]},
+  videnskab:{n:"Naturvidenskab",      e:"🧬", g:["#114a46","#041312"]},
+  psyk:     {n:"Psykologi & hjernen", e:"🧠", g:["#4a1f4a","#130713"]},
+  filo:     {n:"Filosofi & stoicisme",e:"📜", g:["#3e3424","#110e09"]},
+  motiv:    {n:"Motivation & vaner",  e:"🔥", g:["#6b2a12","#1a0904"]},
+  sund:     {n:"Sundhed & træning",   e:"💪", g:["#1d4a2a","#06130a"]},
+  okonomi:  {n:"Penge & økonomi",     e:"📈", g:["#2a4a1d","#0b1307"]},
+  tek:      {n:"Teknologi & AI",      e:"💻", g:["#1d334a","#070d14"]},
+  natur:    {n:"Natur & dyr",         e:"🐙", g:["#14453a","#04110e"]},
+  opfind:   {n:"Opfindelser & genier",e:"💡", g:["#4a4114","#131005"]},
+};
+
+/* ================== Indhold ==================
+ type: f = fakta, d = dokumentar-tip, m = motivation/tankevækker */
+const CONTENT = [
+// Antikken
+{c:"antik",y:"f",t:"Kleopatra levede tættere på månelandingen end på pyramiderne",b:"Den Store Pyramide i Giza stod færdig omkring 2560 f.Kr. Kleopatra døde i år 30 f.Kr. – ca. 2.500 år senere. Fra hende til månelandingen i 1969 er der ’kun’ ca. 2.000 år.",x:"Det gamle Egypten varede så længe, at Kleopatra selv betragtede pyramiderne som oldtid.",q:"Cleopatra pyramids timeline explained"},
+{c:"antik",y:"f",t:"Romersk beton bliver stærkere i havvand",b:"Romerne blandede vulkansk aske og kalk i deres beton. Når havvand trænger ind, dannes nye mineraler, der lukker revnerne. Romerske havnemoler har stået i ca. 2.000 år.",x:"Moderne forskere studerer opskriften for at lave mere holdbar beton i dag.",q:"Roman concrete self healing documentary"},
+{c:"antik",y:"f",t:"En 2.000 år gammel ’computer’",b:"Antikythera-mekanismen blev fundet i et skibsvrag ud for Grækenland i 1901. Med sine bronzetandhjul kunne den forudsige sol- og måneformørkelser og planeternes positioner.",x:"Intet lige så avanceret mekanisk apparat kendes fra de næste mere end 1.000 år.",q:"Antikythera mechanism documentary"},
+{c:"antik",y:"d",t:"Dokumentar: Roms opstigen og fald",b:"BBC-serien ’Ancient Rome: The Rise and Fall of an Empire’ (2006) dramatiserer seks vendepunkter – fra Julius Cæsar til Roms fald.",x:"God til en aften: hvert afsnit er ca. en time.",q:"Ancient Rome The Rise and Fall of an Empire BBC"},
+{c:"antik",y:"f",t:"Biblioteket i Alexandria brændte ikke på én dag",b:"Den populære historie om én stor brand er for simpel. Biblioteket forfaldt over flere hundrede år pga. politisk uro, mindre støtte og flere ødelæggelser.",x:"En god påmindelse: store institutioner forsvinder sjældent på én dag – de forsømmes langsomt.",q:"Library of Alexandria what really happened"},
+
+// Vikinger & Danmark
+{c:"viking",y:"f",t:"Vikingerne var i Amerika i år 1021",b:"Ved L’Anse aux Meadows på Newfoundland har forskere dateret træ fældet med metalværktøj til præcis år 1021 – næsten 500 år før Columbus.",x:"Dateringen kom fra et solstorm-spor i træets årringe.",q:"L'Anse aux Meadows vikings 1021"},
+{c:"viking",y:"f",t:"Bluetooth er opkaldt efter en dansk konge",b:"Harald Blåtand samlede Danmark og gjorde landet kristent. Bluetooth-logoet er hans initialer skrevet med runer: ᚼ og ᛒ sat sammen.",x:"Navnet var tænkt som et kodenavn, fordi teknologien skulle ’samle’ enheder, ligesom Harald samlede riget.",q:"why is bluetooth named after Harald Bluetooth"},
+{c:"viking",y:"f",t:"Danmarks dåbsattest står i Jelling",b:"Omkring 965 rejste Harald Blåtand den store Jellingsten. Indskriften fortæller, at han ’vandt sig hele Danmark og Norge og gjorde danerne kristne’.",x:"Det er første gang navnet ’Danmark’ står skrevet i landet selv.",q:"Jellingstenen Harald Blåtand"},
+{c:"viking",y:"f",t:"Trelleborgene var tegnet med passer",b:"Ringborgene fra ca. 980 (Trelleborg, Fyrkat, Aggersborg m.fl.) har perfekt cirkulære volde og huse i præcise mønstre. De blev bygget på få år.",x:"Det viser en stærk centralmagt, der kunne planlægge og mobilisere tusindvis af mennesker.",q:"Trelleborg viking ring fortress"},
+{c:"viking",y:"d",t:"Dokumentar: Historien om Danmark",b:"DR’s serie fra 2017 med Lars Mikkelsen som fortæller går fra istiden til i dag i 10 afsnit.",x:"Ligger på DR TV – søg ’Historien om Danmark’.",q:"Historien om Danmark DR",u:"https://www.dr.dk/drtv/soeg?q=historien%20om%20danmark"},
+
+// Krige & 1900-tallet
+{c:"koldkrig",y:"f",t:"9. november 1989: Berlinmuren falder",b:"Den 9. november 1989 åbnede grænsen mellem Øst- og Vestberlin efter en forvirret pressekonference. Tusindvis strømmede til muren samme nat.",x:"Et fejlagtigt svar fra talsmanden Günter Schabowski – ’med det samme’ – udløste det hele.",q:"fall of Berlin Wall 1989 documentary"},
+{c:"krig",y:"f",t:"Redningen af de danske jøder",b:"I oktober 1943 blev omkring 7.000 danske jøder sejlet over Øresund til Sverige på få uger, hjulpet af almindelige danskere. Over 95 % af Danmarks jøder overlevede krigen.",x:"Advarslen kom fra den tyske diplomat Georg F. Duckwitz.",q:"rescue of the Danish Jews 1943"},
+{c:"krig",y:"f",t:"Kodebryderne i Bletchley Park",b:"Britiske matematikere, bl.a. Alan Turing, knækkede den tyske Enigma-kode. Historikere mener, det forkortede krigen med op til to år.",x:"Arbejdet var hemmeligt i årtier – mange medarbejdere fortalte aldrig deres familier om det.",q:"Bletchley Park Enigma documentary"},
+{c:"krig",y:"d",t:"Dokumentar: The World at War",b:"Klassikeren fra 1973 i 26 afsnit regnes stadig for en af de bedste dokumentarer om Anden Verdenskrig – med interviews med folk, der var der.",x:"Fortalt af Laurence Olivier.",q:"The World at War 1973 episode 1"},
+{c:"koldkrig",y:"f",t:"Cubakrisen blev afværget af én mand",b:"I oktober 1962 ville kaptajnen på en sovjetisk ubåd affyre en atomtorpedo. Officeren Vasilij Arkhipov nægtede at give sit samtykke.",x:"Han kaldes nogle gange ’manden der reddede verden’.",q:"Vasili Arkhipov Cuban missile crisis"},
+
+// Mere Romerriget
+{c:"antik",y:"f",t:"Cæsar blev kidnappet af pirater",b:"Som ung blev Julius Cæsar taget til fange af pirater. Ifølge Plutarch grinede han af løsesummen og krævede, at de bad om mere. Han lovede dem, at han ville komme tilbage og straffe dem.",x:"Da han blev løsladt, samlede han en flåde, fangede piraterne og holdt sit løfte.",q:"Julius Caesar kidnapped by pirates"},
+{c:"antik",y:"f",t:"Tre legioner forsvandt i en skov",b:"I år 9 e.Kr. lokkede germaneren Arminius, der selv var uddannet i den romerske hær, tre romerske legioner i et baghold i Teutoburgerskoven. Omkring 15.000 soldater blev dræbt.",x:"Kejser Augustus skulle efter sigende have råbt: ’Varus, giv mig mine legioner tilbage!’ Rom erobrede aldrig Germanien.",q:"Battle of Teutoburg Forest documentary"},
+{c:"antik",y:"f",t:"Colosseum havde plads til ca. 50.000",b:"Arenaen stod færdig i år 80 e.Kr. Under gulvet var der et net af gange og elevatorer, så dyr og gladiatorer pludselig kunne dukke op midt i arenaen.",x:"Lærredssejl, der blev styret af sømænd, kunne trækkes ud over publikum som solskærm.",q:"Colosseum how it worked hypogeum"},
+{c:"antik",y:"f",t:"Rom ’faldt’ to gange",b:"Det Vestromerske Rige endte i 476, da den sidste kejser blev afsat. Men Østrom, med Konstantinopel som hovedstad, overlevede i næsten 1.000 år mere, indtil 1453.",x:"Byzantinerne kaldte sig selv romere hele vejen igennem.",q:"why did the Roman Empire fall"},
+{c:"antik",y:"f",t:"Rom var en millionby for 2.000 år siden",b:"Under kejser Augustus havde Rom anslået omkring en million indbyggere. Byen fik vand fra kilometerlange akvædukter og havde offentlige bade og kloakker.",x:"Den næste europæiske by med så mange indbyggere var London omkring år 1800.",q:"ancient Rome daily life documentary"},
+{c:"antik",y:"d",t:"Dokumentar: Roman Empire (Netflix)",b:"En dokudrama-serie, hvor sæson 1 handler om Commodus, kejseren der kæmpede som gladiator. Historikere kommenterer undervejs.",x:"God, hvis du kan lide magtkampe og intriger.",q:"Roman Empire Netflix Commodus"},
+
+// Mere 2. verdenskrig
+{c:"krig",y:"f",t:"Danmark blev besat på få timer",b:"Om morgenen den 9. april 1940 gik tyske tropper over grænsen. Regeringen kapitulerede efter få timer for at undgå et blodbad. 16 danske soldater blev dræbt.",x:"Danmark havde i begyndelsen et særligt ’samarbejde’ med besættelsesmagten. Det sluttede i august 1943.",q:"9 april 1940 Danmark besættelse"},
+{c:"krig",y:"f",t:"Et lig narrede Hitler",b:"Under Operation Mincemeat i 1943 lod britisk efterretningstjeneste et lig drive i land i Spanien med falske invasionsplaner. Tyskerne troede på dem og flyttede tropper væk fra Sicilien.",x:"Manden blev givet en falsk identitet som ’major William Martin’.",q:"Operation Mincemeat true story"},
+{c:"krig",y:"f",t:"D-dag: 156.000 mand på én dag",b:"Den 6. juni 1944 gik over 150.000 allierede soldater i land i Normandiet fra havet og fra luften. Det var den største landgang fra søen i historien.",x:"Tyskerne var narret af en falsk hær, ’Operation Fortitude’, med oppustelige kampvogne i England.",q:"D-Day explained documentary"},
+{c:"krig",y:"f",t:"Stalingrad – vendepunktet",b:"Slaget om Stalingrad 1942–43 kostede anslået omkring 2 millioner døde, sårede og tilfangetagne. Det var et af de blodigste slag i historien.",x:"Efter nederlaget gik den tyske hær mest tilbage på østfronten.",q:"Battle of Stalingrad documentary"},
+{c:"krig",y:"f",t:"Angrebet på Shellhuset",b:"Den 21. marts 1945 bombede britiske fly Gestapos hovedkvarter i København for at befri fangne modstandsfolk. Et fly styrtede ned, og andre bombede ved en fejl Den Franske Skole. 86 børn blev dræbt.",x:"En af de mest tragiske dage i Danmarks besættelseshistorie.",q:"Shellhuset bombning 1945"},
+{c:"krig",y:"d",t:"Dokumentar: Apocalypse – Anden Verdenskrig",b:"Fransk serie i seks afsnit lavet ud fra originale optagelser, der er farvelagt. Det får krigen til at føles skræmmende nærværende.",x:"Findes i flere sprogversioner.",q:"Apocalypse The Second World War"},
+
+// Kold krig & spioner
+{c:"koldkrig",y:"f",t:"Manden der ignorerede atomalarmen",b:"Den 26. september 1983 viste det sovjetiske varslingssystem, at USA havde affyret atommissiler. Officeren Stanislav Petrov vurderede, at det var falsk alarm, og meldte det ikke videre som et angreb.",x:"Han havde ret. Solens refleksion i skyer havde narret satellitterne.",q:"Stanislav Petrov 1983 false alarm"},
+{c:"koldkrig",y:"f",t:"Spioner i den britiske elite",b:"’Cambridge Five’ var fem britiske studerende, der blev rekrutteret af Sovjet i 1930’erne. De fik topposter i efterretningstjenesten og lækkede hemmeligheder i årtier.",x:"Kim Philby var tæt på at blive chef for MI6’s afdeling mod Sovjet.",q:"Cambridge Five spies documentary"},
+{c:"koldkrig",y:"f",t:"Danmarks hemmelige atombunker-fort",b:"Stevnsfort blev gravet ind i kridtklinten under Den Kolde Krig og skulle holde øje med Østersøen. Det er i dag museum, og du kan gå i tunnellerne.",x:"Fortet var hemmeligt og bemandet helt frem til 2000.",q:"Stevnsfort koldkrigsmuseum"},
+{c:"koldkrig",y:"f",t:"Kapløbet til Månen var en våbenkonkurrence",b:"De samme raketter, der kunne bære astronauter, kunne bære atomvåben. Da Sovjet sendte Sputnik op i 1957, frygtede USA, at russerne kunne ramme dem fra rummet.",x:"Derfor brugte USA på et tidspunkt over 4 % af hele statsbudgettet på NASA.",q:"space race cold war explained"},
+
+// Bander & kriminalitet
+{c:"bander",y:"f",t:"Den store nordiske rockerkrig",b:"Fra 1994 til 1997 kæmpede Hells Angels og Bandidos om magten i Norden. Der blev brugt stjålne panserværnsraketter og håndgranater. 11 blev dræbt og næsten 100 såret.",x:"Krigen sluttede med en fredsaftale i 1997, som lederne præsenterede på tv.",q:"rockerkrigen 1990erne Danmark"},
+{c:"bander",y:"f",t:"Visitationszoner",b:"Når der er bandekonflikt, kan politiet oprette visitationszoner. Inden for zonen må de visitere folk for våben uden konkret mistanke.",x:"Zonerne er omdiskuterede: de kan dæmpe vold, men rammer også almindelige beboere.",q:"visitationszone politi bandekonflikt"},
+{c:"bander",y:"f",t:"Børn som ’lejesoldater’",b:"Fra 2023 advarede politiet om, at kriminelle netværk fra Sverige hyrede unge i Danmark til voldelige opgaver, ofte via sociale medier og for få tusind kroner.",x:"De unge får typisk lange straffe, mens dem, der giver ordrerne, sjældent bliver fanget.",q:"svenske bander hyrer danske unge"},
+{c:"bander",y:"f",t:"En bande blev forbudt",b:"Loyal to Familia blev som den første gruppe i Danmark opløst ved en dom med henvisning til grundlovens § 78 om foreninger, der bruger vold.",x:"Det er sjældent: Grundloven beskytter ellers stærkt retten til at danne foreninger.",q:"Loyal to Familia opløst dom"},
+{c:"bander",y:"m",t:"Der findes en vej ud",b:"Politi og kommuner tilbyder exitforløb til folk, der vil ud af en bande, med hjælp til bolig, job, uddannelse og beskyttelse.",x:"Mange, der er kommet ud, fortæller, at det sværeste var at bryde med ’familien’ – ikke selve kriminaliteten.",q:"exit bande historie dokumentar"},
+{c:"bander",y:"f",t:"Hvorfor går unge ind i bander?",b:"Forskning peger på de samme ting igen og igen: behov for at høre til, status, beskyttelse og hurtige penge. Rekrutteringen sker ofte gradvist, med små tjenester først.",x:"Når man først skylder nogen noget, er det svært at sige nej.",q:"why young people join gangs documentary"},
+
+// Narko & organiseret kriminalitet (historierne bag Narcos, Snowfall, 4 Blocks, Top Boy)
+{c:"bander",y:"f",t:"Den rigtige Pablo Escobar",b:"I 1980’erne stod Escobars Medellín-kartel bag en stor del af den kokain, der blev smuglet til USA. Han var en af verdens rigeste mænd. Han blev skudt af colombiansk politi i Medellín den 2. december 1993.",x:"I Narcos spilles han af den brasilianske skuespiller Wagner Moura, der lærte spansk til rollen.",q:"Pablo Escobar real story documentary"},
+{c:"bander",y:"f",t:"Den virkelige baggrund for Snowfall",b:"Crack spredte sig til amerikanske storbyer fra midten af 1980’erne og ramte især fattige kvarterer hårdt. Los Angeles var et af centrene.",x:"Den kendte LA-dealer ’Freeway’ Rick Ross kunne næsten ikke læse, da han blev arresteret. Han lærte det i fængslet.",q:"crack epidemic Los Angeles 1980s documentary"},
+{c:"bander",y:"f",t:"Klankriminalitet i Berlin – virkeligheden bag 4 Blocks",b:"4 Blocks er inspireret af arabiske kriminelle klaner i Berlin. I 2019 stjal medlemmer af en kendt Berlin-klan juveler for et trecifret millionbeløb i euro fra Grünes Gewölbe-museet i Dresden.",x:"Flere blev dømt i 2023, og en stor del af juvelerne kom tilbage.",q:"Berlin clan crime documentary"},
+{c:"bander",y:"f",t:"100 kilo guld forsvandt fra et museum",b:"I 2017 stjal tyve en kæmpe guldmønt på 100 kg, ’Big Maple Leaf’, fra Bode-museet i Berlin. De kom ind gennem et vindue og fragtede den væk med en trillebør.",x:"Mønten blev aldrig fundet. Man tror, den blev smeltet om.",q:"Big Maple Leaf gold coin theft Berlin"},
+{c:"bander",y:"f",t:"Top Boy blev reddet af Drake",b:"Den britiske serie om bandelivet i det østlige London blev stoppet af Channel 4 i 2013. Rapperen Drake var fan og hjalp med at bringe den tilbage på Netflix i 2019.",x:"Serien er kendt for at vise, hvordan fattigdom og manglende muligheder trækker unge ind i bandelivet.",q:"Top Boy real life London documentary"},
+
+// Kampsport & sportslegender
+{c:"sport",y:"f",t:"Mike Tyson – verdensmester som 20-årig",b:"I 1986 blev Mike Tyson den yngste sværvægtsverdensmester nogensinde, kun 20 år gammel. Som teenager var han flere gange i problemer med loven.",x:"Træneren Cus D’Amato tog ham ind i sit hjem og lærte ham disciplin. Tyson har sagt, at D’Amato reddede hans liv.",q:"Mike Tyson Cus D'Amato story"},
+{c:"sport",y:"m",t:"Ali satte sin titel på spil for sin overbevisning",b:"I 1967 nægtede Muhammad Ali at gå i krig i Vietnam. Han blev frataget sin titel og måtte ikke bokse i over tre år. I 1971 gav USA’s højesteret ham medhold.",x:"Han betalte en høj pris for at stå ved det, han troede på.",q:"Muhammad Ali draft refusal documentary"},
+{c:"sport",y:"m",t:"Bruce Lee: ’Vær som vand’",b:"Bruce Lee studerede filosofi på University of Washington. Han kombinerede kampsport med østlig filosofi: tilpas dig situationen i stedet for at kæmpe imod den.",x:"Han skrev og trænede utroligt disciplineret – også længe før han blev berømt.",q:"Bruce Lee be water philosophy"},
+{c:"sport",y:"d",t:"Dokumentar: Tyson (2008)",b:"Mike Tyson fortæller selv om sit liv – fra gaderne i Brooklyn til verdensmester, fængsel og comeback. Instrueret af James Toback.",x:"Rå og ærlig. God, hvis du kan lide Narcos-agtige livshistorier.",q:"Tyson 2008 documentary"},
+
+// Hiphop, film & kultur
+{c:"kultur",y:"f",t:"Hiphop blev født til en fest i Bronx",b:"Den 11. august 1973 spillede DJ Kool Herc til sin søsters fest i Bronx i New York. Han forlængede de dansable breaks i pladerne – og regnes som hiphoppens far.",x:"Bygningen på 1520 Sedgwick Avenue kaldes stadig hiphoppens fødested.",q:"birth of hip hop DJ Kool Herc 1973"},
+{c:"kultur",y:"f",t:"Rap vandt en Pulitzerpris",b:"I 2018 fik Kendrick Lamar Pulitzerprisen i musik for albummet DAMN. Det var første gang, prisen gik til et værk uden for klassisk musik og jazz.",x:"Juryen roste albummet for at skildre livet for unge afroamerikanere.",q:"Kendrick Lamar Pulitzer DAMN explained"},
+{c:"kultur",y:"f",t:"Everybody Hates Chris er (næsten) sandt",b:"Serien bygger løst på Chris Rocks egen opvækst i Brooklyn i 1980’erne, hvor han var en af de få sorte elever på sin skole. Chris Rock er selv fortæller.",x:"Mange af historierne er overdrevet for sjov – men grundhistorien er hans egen.",q:"Chris Rock real childhood Everybody Hates Chris"},
+{c:"kultur",y:"f",t:"Hans Zimmer er stort set selvlært",b:"Komponisten bag musikken til Gladiator, Interstellar og The Dark Knight har næsten ingen formel musikuddannelse. Han startede i bands og med synthesizere.",x:"Bevis på at nysgerrighed og masser af øvelse kan slå en fin uddannelse.",q:"Hans Zimmer how he makes music"},
+{c:"okonomi",y:"m",t:"Buffetts hemmelighed er tid",b:"Ifølge forfatteren Morgan Housel tjente Warren Buffett langt størstedelen af sin formue, efter han var fyldt 65. Han startede med at investere som 11-årig.",x:"Renters rente belønner dem, der starter tidligt og holder ud længe.",q:"Warren Buffett compound interest time"},
+
+// Konflikter i dag
+{c:"geo",y:"f",t:"NATO’s artikel 5 er kun brugt én gang",b:"’Et angreb på én er et angreb på alle.’ Artikel 5 er kun blevet aktiveret én gang: efter angrebet på USA den 11. september 2001.",x:"Danske soldater var derfor i Afghanistan i over 20 år.",q:"NATO article 5 explained"},
+{c:"geo",y:"f",t:"Hormuzstrædet: verdens olie-flaskehals",b:"Omkring en femtedel af verdens olie sejles gennem det smalle stræde mellem Iran og Den Arabiske Halvø. Uro her kan mærkes på benzinprisen i Danmark.",x:"Det smalleste sted er kun ca. 33 km bredt.",q:"Strait of Hormuz explained"},
+{c:"geo",y:"f",t:"Hvorfor Taiwan er så vigtig",b:"Taiwan producerer langt størstedelen af verdens mest avancerede computerchips. De sidder i alt fra telefoner til våben. Det gør øen til et af verdens mest strategiske steder.",x:"Derfor taler man om et ’silicium-skjold’.",q:"why Taiwan matters chips explained"},
+{c:"geo",y:"f",t:"Grønland er geopolitisk guld",b:"Grønland ligger mellem USA, Europa og Rusland og har sjældne jordarter. Pituffik-basen (tidligere Thule) er en vigtig del af USA’s missilvarsling.",x:"Når isen smelter, åbner nye sejlruter gennem Arktis.",q:"Greenland geopolitics explained"},
+{c:"geo",y:"f",t:"Krigen i Ukraine",b:"Den 24. februar 2022 invaderede Rusland Ukraine i fuld skala, efter at have annekteret Krim i 2014. Krigen har ændret Europas forsvar. Finland og Sverige er kommet med i NATO.",x:"Søg på nyheder for den aktuelle situation – den ændrer sig hurtigt.",q:"Ukraine war explained"},
+
+// Overlevelse & ekstremt
+{c:"overlev",y:"f",t:"Apollo 13: problemet i rummet",b:"I 1970 eksploderede en ilttank på vej mod Månen. Ingeniørerne på Jorden måtte finde på et CO₂-filter lavet af det, astronauterne havde om bord – bl.a. plastikposer og tape.",x:"Alle tre astronauter kom sikkert hjem.",q:"Apollo 13 true story"},
+{c:"overlev",y:"f",t:"72 dage i Andesbjergene",b:"I 1972 styrtede et fly med et uruguayansk rugbyhold ned i Andesbjergene. 16 overlevede i 72 dage. To af dem gik til sidst i 10 dage over bjergene for at hente hjælp.",x:"Historien er filmatiseret i ’Society of the Snow’ (2023).",q:"Andes plane crash survivors story"},
+{c:"overlev",y:"f",t:"Shackleton mistede ikke en eneste mand",b:"I 1915 blev skibet Endurance knust af isen ved Antarktis. Ernest Shackleton holdt hele besætningen på 28 mand i live i over et år – og hentede hjælp i en lille åben båd.",x:"Vraget blev fundet på 3.000 meters dybde i 2022, overraskende velbevaret.",q:"Shackleton Endurance documentary"},
+{c:"overlev",y:"f",t:"Redningen i den thailandske grotte",b:"I 2018 blev 12 drenge og deres fodboldtræner fanget i en oversvømmet grotte i 18 dage. Internationale dykkere fik dem alle ud.",x:"En thailandsk dykker, Saman Kunan, mistede livet under redningen.",q:"Thai cave rescue documentary"},
+{c:"overlev",y:"f",t:"Hun faldt ud af et fly – og overlevede",b:"I 1971 blev et fly over Peru ramt af lynet. 17-årige Juliane Koepcke faldt flere kilometer, stadig fastspændt i sit sæde, og gik derefter 11 dage gennem junglen for at finde hjælp.",x:"Hun overlevede, bl.a. fordi hendes forældre havde lært hende, hvordan man klarer sig i junglen.",q:"Juliane Koepcke survival story"},
+
+// Middelalder
+{c:"middel",y:"f",t:"Den sorte død",b:"Pesten 1347–1351 dræbte anslået 30–50 % af Europas befolkning. Mangel på arbejdskraft gav bagefter bønderne højere lønninger og mere frihed.",x:"En katastrofe, der ironisk nok var med til at nedbryde feudalsystemet.",q:"Black Death documentary"},
+{c:"middel",y:"f",t:"Margrete 1. styrede hele Norden",b:"I 1397 samlede dronning Margrete Danmark, Norge og Sverige i Kalmarunionen – et af Europas største riger på den tid.",x:"Hun havde aldrig titlen dronning af Danmark, men var ’fuldmægtig frue og husbonde’.",q:"Margrete 1 Kalmarunionen"},
+{c:"middel",y:"f",t:"Magna Carta, 1215",b:"Engelske baroner tvang kong John til at skrive under på, at heller ikke kongen stod over loven. Idéen blev senere grundsten i moderne retsstater.",x:"De fleste af de oprindelige paragraffer er i dag ophævet – men princippet lever.",q:"Magna Carta explained"},
+
+// Rummet
+{c:"rum",y:"f",t:"En dag på Venus er længere end et år",b:"Venus bruger ca. 243 jorddøgn på at dreje én gang om sig selv – men kun ca. 225 jorddøgn på at rejse rundt om Solen.",x:"Og den drejer den ’forkerte’ vej, så Solen står op i vest.",q:"why a day on Venus is longer than a year"},
+{c:"rum",y:"f",t:"Voyager 1 er stadig på vej",b:"Sonden blev sendt op i 1977 og er det fjerneste menneskeskabte objekt – mere end 24 milliarder km væk. Et radiosignal tager næsten et døgn at nå frem.",x:"Den har en guldplade med lyde og billeder fra Jorden om bord.",q:"Voyager 1 documentary The Farthest"},
+{c:"rum",y:"f",t:"Du ser altid fortiden",b:"Lyset fra Solen er ca. 8 minutter og 20 sekunder om at nå os. Når du kigger på stjerner, ser du lys, der har rejst i hundreder eller tusinder af år.",x:"Nogle af de stjerner, du ser, kan i princippet være forsvundet for længst.",q:"looking back in time light speed stars"},
+{c:"rum",y:"d",t:"Dokumentar: Cosmos",b:"’Cosmos: A Spacetime Odyssey’ (2014) med Neil deGrasse Tyson tager dig fra Big Bang til livets oprindelse i 13 afsnit.",x:"Bygger videre på Carl Sagans klassiske ’Cosmos’ fra 1980.",q:"Cosmos A Spacetime Odyssey"},
+{c:"rum",y:"f",t:"En teskefuld neutronstjerne",b:"Neutronstjerner er så tætte, at en teskefuld af deres stof ville veje milliarder af tons på Jorden.",x:"De dannes, når en kæmpestjerne kollapser i en supernova.",q:"neutron star explained"},
+
+// Naturvidenskab
+{c:"videnskab",y:"f",t:"Du har ca. 2 meter DNA i hver celle",b:"Hvis du trak DNA’et ud af én celle, ville det være omkring 2 meter langt. Det er pakket så tæt, at det fylder en brøkdel af en millimeter.",x:"Alt DNA i din krop lagt i forlængelse ville nå til Solen og tilbage mange gange.",q:"how DNA fits in a cell"},
+{c:"videnskab",y:"f",t:"Bjørnedyr overlever rummet",b:"Bjørnedyr (tardigrader) på under 1 mm kan overleve udtørring, ekstrem kulde og endda rummets vakuum ved at gå i en slags dvale.",x:"De blev testet uden for en satellit i 2007 – og nogle overlevede.",q:"tardigrades survive space"},
+{c:"videnskab",y:"f",t:"Du er cirka halvt bakterier",b:"Man sagde længe, at bakterier i kroppen var 10 gange flere end dine egne celler. Nyere beregninger viser, at forholdet er tættere på 1:1.",x:"Videnskab er en proces – også ’kendte fakta’ bliver opdateret.",q:"human microbiome explained"},
+{c:"videnskab",y:"f",t:"Is flyder – og det redder livet i søer",b:"Vand er et af de få stoffer, der udvider sig, når det fryser. Derfor lægger isen sig ovenpå og isolerer vandet nedenunder, så fisk kan overleve vinteren.",x:"Hvis is sank, kunne søer bundfryse fra bunden og op.",q:"why does ice float"},
+
+// Psykologi
+{c:"psyk",y:"f",t:"Du glemmer det meste efter et døgn",b:"Hermann Ebbinghaus viste i 1880’erne, at vi glemmer en stor del af nyt stof hurtigt. Det, der virker: gentag med pauser – efter 1 dag, 3 dage, en uge.",x:"Det kaldes ’spaced repetition’ og er en af de mest veldokumenterede læringsteknikker.",q:"spaced repetition forgetting curve"},
+{c:"psyk",y:"f",t:"Dopamin handler om forventning",b:"Dopamin er ikke mest et ’lykkestof’. Det handler om forventning og trang. Uendelige feeds udnytter det med uforudsigelige belønninger – som en spillemaskine.",x:"Derfor har denne app en tidsgrænse 😉",q:"dopamine motivation explained"},
+{c:"psyk",y:"f",t:"Søvn er hvor læring sætter sig fast",b:"Under søvn genafspiller hjernen dagens oplevelser og flytter dem til langtidshukommelsen. Søvnmangel efter indlæring gør, at du husker markant mindre.",x:"Læs noget vigtigt om aftenen – og sov på det.",q:"sleep and memory consolidation"},
+{c:"psyk",y:"f",t:"Spotlight-effekten",b:"Vi overvurderer systematisk, hvor meget andre lægger mærke til os. I et kendt forsøg måtte studerende bære en pinlig T-shirt – langt færre end de troede, havde set den.",x:"De fleste er alt for optaget af sig selv til at kigge på dig.",q:"spotlight effect psychology"},
+
+// Filosofi
+{c:"filo",y:"m",t:"Kejserens private dagbog",b:"Marcus Aurelius var verdens mægtigste mand, men skrev ’Meditationer’ kun til sig selv – påmindelser om at være tålmodig, ydmyg og gøre sin pligt.",x:"Den blev aldrig skrevet til at blive udgivet. Det er måske derfor, den er så ærlig.",q:"Marcus Aurelius Meditations explained"},
+{c:"filo",y:"m",t:"Hvad kan du faktisk kontrollere?",b:"Epiktet, der blev født som slave, lærte at dele alt i to: det, du har kontrol over (dine valg og handlinger), og det, du ikke har (andres meninger, vejret, fortiden).",x:"Brug din energi på den første kasse.",q:"Epictetus dichotomy of control"},
+{c:"filo",y:"m",t:"Livet er ikke kort – vi spilder det",b:"Seneca skrev omkring år 49, at livet er langt nok, hvis vi bruger det godt. Problemet er, at vi giver vores tid væk lettere end vores penge.",x:"Spørg dig selv: hvor gik mine sidste tre timer hen?",q:"Seneca On the Shortness of Life"},
+{c:"filo",y:"m",t:"Kierkegaard om livet",b:"Søren Kierkegaard skrev i sine dagbøger, at livet må forstås baglæns, men må leves forlæns.",x:"Du får sjældent mening med tingene, før du ser tilbage – så tag skridtet alligevel.",q:"Søren Kierkegaard philosophy explained"},
+
+// Motivation
+{c:"motiv",y:"m",t:"1 % bedre hver dag",b:"Hvis du bliver 1 % bedre hver dag i et år, bliver du ca. 37 gange bedre (1,01³⁶⁵ ≈ 37,8). Bliver du 1 % dårligere hver dag, ender du næsten på nul.",x:"Små vaner er renters rente for dit liv.",q:"1 percent better every day atomic habits"},
+{c:"motiv",y:"m",t:"To-minutters-reglen",b:"Gør vanen så lille, at den tager under to minutter: ’Læs én side’ i stedet for ’Læs en bog’. ’Tag løbeskoene på’ i stedet for ’Løb 5 km’.",x:"Det handler om at blive en person, der møder op.",q:"two minute rule habits"},
+{c:"motiv",y:"m",t:"Motivation kommer efter handling",b:"Mange venter på at få lyst. Men ofte kommer lysten først, når du er i gang. Start med det mindste skridt – følelsen følger efter.",x:"Disciplin er at gøre det, selv når motivationen er væk.",q:"action creates motivation"},
+{c:"motiv",y:"m",t:"’Når X, så gør jeg Y’",b:"Forskning i såkaldte implementeringsintentioner viser, at folk, der planlægger præcis hvornår og hvor de gør noget, gennemfører markant oftere.",x:"Prøv: ’Når jeg har drukket morgenkaffe, går jeg en tur på 10 minutter.’",q:"implementation intentions Gollwitzer"},
+{c:"motiv",y:"m",t:"Fokus i 25 minutter",b:"Pomodoro-teknikken: arbejd fokuseret i 25 minutter, hold 5 minutters pause, gentag. Telefonen i et andet rum.",x:"Det er lettere at starte på 25 minutter end på ’hele eftermiddagen’.",q:"pomodoro technique explained"},
+
+// Sundhed
+{c:"sund",y:"f",t:"En gåtur efter maden",b:"Selv 10–15 minutters gang efter et måltid sænker blodsukkerstigningen mærkbart, fordi musklerne bruger sukkeret direkte.",x:"En af de nemmeste sundhedsvaner, der findes.",q:"walking after eating blood sugar"},
+{c:"sund",y:"f",t:"Motion får hjernen til at vokse",b:"I et forsøg fra 2011 fik ældre voksne, der gik raske ture i et år, et ca. 2 % større hippocampus – hjernens hukommelsescenter.",x:"Kontrolgruppen, der kun lavede udstrækning, mistede derimod lidt volumen.",q:"exercise grows hippocampus brain"},
+{c:"sund",y:"f",t:"Morgenlys stiller dit indre ur",b:"Dagslys tidligt på dagen hjælper hjernen med at indstille døgnrytmen, så du bliver træt på det rigtige tidspunkt om aftenen.",x:"Selv på en grå dag er lyset udenfor meget kraftigere end indendørs.",q:"morning sunlight circadian rhythm"},
+{c:"sund",y:"f",t:"Muskler er en pensionsopsparing",b:"Fra omkring 30-årsalderen begynder muskelmassen langsomt at falde, hvis du ikke træner. Styrketræning bremser det i alle aldre.",x:"Stærke muskler betyder mere selvstændighed, når du bliver ældre.",q:"strength training aging muscle loss"},
+
+// Økonomi
+{c:"okonomi",y:"f",t:"Renters rente i praksis",b:"Sætter du 1.000 kr. til side om måneden i 30 år med 7 % årligt afkast, ender du med ca. 1,2 mio. kr. Du har selv indbetalt 360.000 kr.",x:"Tid er den vigtigste ingrediens. Eksemplet er et regnestykke – ikke en garanti.",q:"compound interest explained"},
+{c:"okonomi",y:"f",t:"72-reglen",b:"Del 72 med renten, så får du cirka antal år, før dine penge fordobles. 6 % → ca. 12 år. 9 % → ca. 8 år.",x:"Virker også omvendt: med 3 % inflation halveres købekraften på ca. 24 år.",q:"rule of 72 explained"},
+{c:"okonomi",y:"f",t:"Tulipanmanien",b:"I Holland i 1630’erne blev tulipanløg handlet for svimlende priser – nogle til samme pris som et hus. I 1637 styrtede markedet.",x:"Ofte nævnt som en af historiens første finansbobler.",q:"tulip mania history"},
+
+// Teknologi
+{c:"tek",y:"f",t:"Den første computer-’bug’ var et møl",b:"I 1947 fandt teamet bag Harvard Mark II-computeren et møl i en relæ. De tapede det ind i logbogen med noten ’first actual case of bug being found’.",x:"Grace Hopper, der var med på holdet, gjorde historien kendt.",q:"first computer bug moth Grace Hopper"},
+{c:"tek",y:"f",t:"Internettets første ord var ’LO’",b:"I 1969 forsøgte man at sende ordet ’LOGIN’ over ARPANET. Systemet gik ned efter to bogstaver.",x:"Det første ord på internettet blev altså ’lo’.",q:"ARPANET first message LO"},
+{c:"tek",y:"f",t:"Din telefon vs. Apollo",b:"Computeren, der styrede Apollo-rumskibene til Månen, havde ca. 4 KB arbejdshukommelse. En moderne telefon har millioner af gange mere.",x:"Koden blev skrevet af et hold ledet af Margaret Hamilton.",q:"Apollo guidance computer explained"},
+
+// Natur
+{c:"natur",y:"f",t:"Blæksprutter har tre hjerter",b:"To hjerter pumper blod gennem gællerne, ét pumper det rundt i kroppen. Blodet er blåt, fordi det bruger kobber i stedet for jern.",x:"De fleste af deres neuroner sidder i armene.",q:"octopus three hearts blue blood"},
+{c:"natur",y:"f",t:"Krager husker dit ansigt",b:"Forskere i Seattle bar masker, mens de fangede krager. I årevis efter skældte kragerne ud, når de så de samme masker – også krager, der aldrig var blevet fanget.",x:"De havde altså lært det af hinanden.",q:"crows remember human faces study"},
+{c:"natur",y:"f",t:"Delfiner sover med halv hjerne",b:"Delfiner lader den ene hjernehalvdel sove ad gangen, så de kan blive ved med at svømme, trække vejret og holde øje med farer.",x:"Det samme øje lukker sig typisk sammen med den sovende halvdel.",q:"dolphins sleep half brain"},
+{c:"natur",y:"d",t:"Dokumentar: Planet Earth II",b:"BBC’s serie fra 2016 med David Attenborough. Seks afsnit om øer, bjerge, jungler, ørkener, græssletter og byer.",x:"Iguan-mod-slanger-scenen er verdensberømt.",q:"Planet Earth II"},
+{c:"natur",y:"d",t:"Dokumentar: My Octopus Teacher",b:"Oscarvindende dokumentar (2020) om en mand, der knytter bånd til en blæksprutte i en tangskov i Sydafrika.",x:"Findes på Netflix.",q:"My Octopus Teacher"},
+
+// Opfindelser
+{c:"opfind",y:"f",t:"Ørsted opdagede elektromagnetismen",b:"I 1820 opdagede danske H.C. Ørsted, at en elektrisk strøm får en kompasnål til at bevæge sig. Det blev grundlaget for elmotorer og generatorer.",x:"Uden den opdagelse – ingen moderne elektricitet.",q:"H.C. Ørsted electromagnetism"},
+{c:"opfind",y:"f",t:"Penicillin var et uheld",b:"I 1928 kom Alexander Fleming hjem fra ferie og så, at en skimmelsvamp havde dræbt bakterierne i en af hans skåle.",x:"Antibiotika har siden reddet hundredvis af millioner liv.",q:"discovery of penicillin Fleming"},
+{c:"opfind",y:"f",t:"Bogtrykkeren ændrede verden",b:"Omkring 1450 udviklede Johannes Gutenberg trykpressen med løse typer. På få årtier blev der trykt millioner af bøger i Europa.",x:"Viden kunne nu spredes hurtigere, end magthaverne kunne styre den.",q:"Gutenberg printing press impact"},
+{c:"opfind",y:"f",t:"Niels Bohr og atomet",b:"Niels Bohr fik Nobelprisen i fysik i 1922 for sin model af atomet. Hans institut i København blev et centrum for hele kvantefysikken.",x:"Han flygtede til Sverige i 1943 og sørgede for, at svenskerne tog imod de danske jøder.",q:"Niels Bohr atom model"},
+];
+
+// Udvalgte, seriøse YouTube-kanaler (u = kanalens uploads, v = enkelt video)
+const YT = [
+ {c:"antik",n:"Historia Civilis",d:"Grundige, rolige forklaringer af Roms historie – Cæsar, borgerkrige og slag.",u:"UCv_vLHiWVBh_FR9vbeuiY-A"},
+ {c:"antik",n:"Kings and Generals",d:"Animerede dokumentarer om slag og imperier gennem historien.",u:"UCMmaBzfCCwZ2KqaBJjkj0fw"},
+ {c:"antik",n:"Fall of Civilizations",d:"Lange, stemningsfulde dokumentarer om civilisationer der faldt.",u:"UCT6Y5JJPKe_JDMivpKgVXew"},
+ {c:"antik",n:"Fall of Civilizations",t:"Romersk Britannien – kæmpernes værk smuldrede",d:"Hvordan Rom mistede Britannien (ca. 1 time).",v:"glKe9njOB24"},
+ {c:"antik",n:"Fall of Civilizations",t:"Byzans – de sidste romere",d:"Østroms tusindårige historie frem til 1453.",v:"2JHCfe86A8U"},
+ {c:"antik",n:"Kings and Generals",t:"De germanske stammers oprindelse",d:"Germanerne – og deres første sammenstød med Rom.",v:"_KFzDlhT6bs"},
+ {c:"krig",n:"Mark Felton Productions",d:"Militærhistoriker med korte, skarpe videoer om 2. verdenskrig og Den Kolde Krig.",u:"UCfCKvREB11-fxyotS1ONgww"},
+ {c:"krig",n:"The Armchair Historian",d:"Animeret krigshistorie – fra D-dag til østfronten.",u:"UCeUJFQ0D9qs6aVNyUt9fkeQ"},
+ {c:"krig",n:"OverSimplified",t:"2. verdenskrig – del 1",d:"Sjov, men lærerig gennemgang af krigens start.",v:"_uk_6vfqwTA"},
+ {c:"koldkrig",n:"OverSimplified",t:"Den Kolde Krig – del 1",d:"Fra revolutionen i Rusland til atomkapløbet.",v:"I79TpDe3t2g"},
+ {c:"koldkrig",n:"OverSimplified",t:"Den Kolde Krig – del 2",d:"Cubakrisen, Vietnam og murens fald.",v:"OIYy32RuHao"},
+ {c:"koldkrig",n:"Mark Felton Productions",d:"Spioner, hemmelige operationer og Den Kolde Krig.",u:"UCfCKvREB11-fxyotS1ONgww"},
+ {c:"bander",n:"criminals and crime fighters (ZDF)",d:"Hele dokumentarer om kriminalitet og politiets efterforskning.",u:"UCYuXyzwA_w4-c1FJrqOnR0A"},
+ {c:"videnskab",n:"Kurzgesagt",d:"Smukt animerede forklaringer af videnskab og universet.",u:"UCsXVk37bltHxD1rDPwtNM8Q"},
+ {c:"rum",n:"Kurzgesagt",d:"Rummet, sorte huller og universets fremtid.",u:"UCsXVk37bltHxD1rDPwtNM8Q"},
+ {c:"filo",n:"Daily Stoic",d:"Stoisk filosofi til hverdagen med Ryan Holiday.",u:"UC6N2Vvwh5Pb9F530wDt_fjQ"},
+ {c:"motiv",n:"Daily Stoic",d:"Disciplin og mental styrke med stoisk filosofi.",u:"UC6N2Vvwh5Pb9F530wDt_fjQ"},
+];
+YT.forEach(x=>{x.y="yt";if(!x.t)x.t=x.n});
+const FILMS = [
+ {c:"antik",y:"film",t:"Varus-slaget: Rom mister tre legioner",src:"videos/teutoburg.mp4"},
+];
+
+/* ================== Spørgeskema ================== */
+const QUIZ = [
+ {k:"hooks",t:"Hvad fanger dig i en god historie?",s:"Vælg alt, der passer.",multi:true,min:1,
+  o:[{v:"magt",l:"⚔️ Magt og konflikt",d:"Krige, bander, magtkampe"},{v:"ekstrem",l:"🧗 Mennesker i ekstreme situationer",d:"Overlevelse, mod, valg under pres"},{v:"myst",l:"🕵️ Mysterier og hemmeligheder",d:"Spioner, skjulte sandheder"},{v:"hvordan",l:"⚙️ Hvordan ting virker",d:"Videnskab, teknologi, hjernen"}]},
+ {k:"eras",t:"Hvilke tider er mest spændende?",s:"Vælg alt, der passer.",multi:true,min:1,
+  o:[{v:"old",l:"🏛️ Oldtiden",d:"Rom, Grækenland, Egypten"},{v:"middel",l:"🏰 Vikinger og middelalder"},{v:"y1900",l:"🎖️ 1900-tallet",d:"Verdenskrigene, Den Kolde Krig"},{v:"nu",l:"📰 Nutiden",d:"Bander, kriminalitet, aktuelle konflikter"}]},
+ {k:"goals",t:"Hvad skal du have ud af at scrolle?",s:"Det styrer blandingen af fakta, historier og motivation.",multi:true,min:1,
+  o:[{v:"klog",l:"🧠 Blive klogere",d:"Fakta, du kan fortælle videre"},{v:"under",l:"🍿 Blive underholdt",d:"Spændende historier og dokumentarer"},{v:"motiv",l:"🔥 Blive motiveret",d:"Disciplin og mental styrke"},{v:"nyheder",l:"🌍 Forstå nyhederne",d:"Hvorfor sker det, der sker"}]},
+ {k:"cats",t:"Her er dine emner",s:"Vi har valgt dem ud fra dine svar. Du kan tilføje eller fjerne emner.",multi:true,chips:true,min:2,
+  o:Object.entries(CATS).map(([k,v])=>({v:k,l:v.e+" "+v.n}))},
+ {k:"limit",t:"Hvor længe vil du scrolle om dagen?",s:"Appen siger pænt stop, når du har nået din grænse. Så bliver det ikke til brain rot.",
+  o:[{v:10,l:"10 minutter"},{v:20,l:"20 minutter"},{v:30,l:"30 minutter"},{v:0,l:"Ingen grænse",d:"Jeg styrer det selv"}]},
+ {k:"lang",t:"Hvilket sprog må videoer være på?",s:"Til ’Se video’-knappen.",
+  o:[{v:"en",l:"Engelsk er fint",d:"Det største udvalg"},{v:"da",l:"Helst dansk",d:"Vi søger efter danske videoer først"}]},
+];
+
+/* ================== State ================== */
+const LS = {get(k,d){try{const v=localStorage.getItem("klog_"+k);return v?JSON.parse(v):d}catch(e){return d}},
+            set(k,v){try{localStorage.setItem("klog_"+k,JSON.stringify(v))}catch(e){}}};
+let profile = LS.get("profile",null);
+let weights = LS.get("weights",{});
+let saved = LS.get("saved",[]);
+let custom = LS.get("custom",[]);
+let seen = new Set(LS.get("seen",[]));
+const today = new Date().toISOString().slice(0,10);
+let usage = LS.get("usage",{d:today,s:0}); if(usage.d!==today) usage={d:today,s:0};
+let limitOverride=false;
+
+const $=s=>document.querySelector(s);
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1600)}
+
+/* ================== Onboarding UI ================== */
+const MAP={
+ hooks:{magt:["krig","antik","koldkrig","bander","geo","middel"],ekstrem:["overlev","krig","sport"],myst:["koldkrig","bander","rum","antik"],hvordan:["videnskab","tek","rum","psyk","opfind"]},
+ eras:{old:["antik"],middel:["middel","viking"],y1900:["krig","koldkrig"],nu:["bander","geo","tek"]},
+ goals:{klog:[],under:["overlev","kultur"],motiv:["motiv","filo","overlev","sport"],nyheder:["geo"]}};
+function scoreCats(a){const s={};Object.keys(CATS).forEach(k=>s[k]=0);
+  ["hooks","eras","goals"].forEach(q=>(a[q]||[]).forEach(v=>(MAP[q][v]||[]).forEach(c=>s[c]++)));return s}
+// Profil ud fra svarene i chatten
+const CHAT_PROFILE={v:3,hooks:["magt","ekstrem","myst","hvordan"],eras:["old","y1900","nu"],goals:["klog","under","motiv","nyheder"],
+  cats:["antik","krig","bander","koldkrig","geo","overlev","sport","kultur","okonomi","sund","rum","videnskab","psyk","motiv","filo"],limit:20,lang:"en",boost:{krig:2,antik:2,bander:3,sport:2,kultur:1.5,okonomi:1}};
+let qi=0, ans={};
+function startQuiz(prefill){ans=prefill?JSON.parse(JSON.stringify(prefill)):{hooks:[],eras:[],goals:[],cats:[]};ans._touched=!!prefill;qi=0;$("#app").classList.add("hidden");$("#onb").classList.remove("hidden");renderQ()}
+function renderQ(){
+  const q=QUIZ[qi], o=$("#onb");
+  let h=`<div class="prog">${QUIZ.map((_,i)=>`<i class="${i<=qi?"on":""}"></i>`).join("")}</div><div class="step">`;
+  if(qi===0) h+=`<p class="sub" style="margin-bottom:6px">👋 Velkommen til KlogFeed</p>`;
+  h+=`<h1>${q.t}</h1><p class="sub">${q.s}</p>`;
+  const arr=ans[q.k]||(ans[q.k]=[]);
+  if(q.chips){
+    h+=`<div class="chips">${q.o.map(x=>`<button class="chip ${arr.includes(x.v)?"on":""}" data-m="${x.v}">${x.l}</button>`).join("")}</div>
+        <p class="count">${arr.length} valgt${arr.length<q.min?` · vælg mindst ${q.min}`:""}</p>`;
+  } else if(q.multi){
+    h+=`<div class="opts">${q.o.map(x=>`<button class="opt ${arr.includes(x.v)?"on":""}" data-m="${x.v}"><b>${x.l}</b>${x.d?`<span>${x.d}</span>`:""}</button>`).join("")}</div>`;
+  } else {
+    h+=`<div class="opts">${q.o.map(x=>`<button class="opt ${ans[q.k]===x.v?"on":""}" data-v="${x.v}"><b>${x.l}</b>${x.d?`<span>${x.d}</span>`:""}</button>`).join("")}</div>`;
+  }
+  h+=`</div><div class="navbar"><div class="in">${qi>0?`<button class="btn ghost" id="back">←</button>`:""}<button class="btn" id="next">${qi===QUIZ.length-1?"Byg mit feed ✨":"Videre"}</button></div></div>`;
+  o.innerHTML=h; o.scrollTop=0;
+  const valid=()=>q.multi?ans[q.k].length>=q.min:ans[q.k]!==undefined;
+  $("#next").disabled=!valid();
+  o.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{const v=b.dataset.m;ans[q.k]=ans[q.k].includes(v)?ans[q.k].filter(c=>c!==v):[...ans[q.k],v];if(q.k==="cats")ans._touched=true;else ans._touched=false;renderQ()});
+  o.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{const raw=b.dataset.v;ans[q.k]=isNaN(raw)?raw:+raw;renderQ()});
+  $("#next").onclick=()=>{if(!valid())return;
+    if(qi<QUIZ.length-1){qi++;
+      if(QUIZ[qi].k==="cats"&&!ans._touched){const s=scoreCats(ans);ans.cats=Object.keys(s).filter(k=>s[k]>0);if(ans.cats.length<2)ans.cats=["krig","antik"]}
+      renderQ()} else finishQuiz()};
+  if($("#back")) $("#back").onclick=()=>{qi--;renderQ()};
+}
+function applyProfile(p){
+  profile=p; profile.v=3; delete profile._touched; LS.set("profile",profile);
+  const s=scoreCats(p);
+  weights={}; Object.keys(CATS).forEach(k=>weights[k]=p.cats.includes(k)?2+s[k]*0.5+((p.boost||{})[k]||0):0.1);
+  LS.set("weights",weights);
+}
+function finishQuiz(){
+  applyProfile(ans);
+  $("#onb").classList.add("hidden"); $("#app").classList.remove("hidden");
+  $("#feed").innerHTML=""; recentCats=[]; stopShown=false; fill(6); toast("Dit feed er klar 🎉");
+}
+
+/* ================== Feed-algoritme ================== */
+let recentCats=[];
+function typeWeight(y){
+  const g=profile.goals||[]; let w=1;
+  if(y==="d") w*= g.includes("under")?1.4:0.7;
+  if(y==="m") w*= g.includes("motiv")?1.6:0.5;
+  if(y==="f") w*= g.includes("klog")?1.3:1;
+  return w;
+}
+function pool(){return [...CONTENT, ...FILMS, ...YT, ...custom.map(v=>({...v,y:"v"}))]}
+function pick(){
+  let items=pool().filter(it=>it.u||!seen.has(id(it)));
+  if(items.length<3){seen=new Set();items=pool()}
+  const sc=items.map(it=>{
+    let w=(weights[it.c]??0.15)*(it.y==="v"||it.y==="film"?2.5:it.y==="yt"?(it.u?6:4):typeWeight(it.y));
+    if(recentCats.slice(-2).includes(it.c)) w*=0.25;   // undgå samme emne tre gange i træk
+    return Math.max(w,0.02);
+  });
+  let r=Math.random()*sc.reduce((a,b)=>a+b,0);
+  for(let i=0;i<items.length;i++){r-=sc[i];if(r<=0)return items[i]}
+  return items[items.length-1];
+}
+const id=it=>it.c+"|"+it.t;
+function ytUrl(it){
+  if(it.u) return it.u;
+  const q=profile.lang==="da"?it.q+" dansk":it.q;
+  return "https://www.youtube.com/results?search_query="+encodeURIComponent(q);
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+function cardHTML(it){
+  const C=CATS[it.c]||CATS.videnskab, sv=saved.some(s=>s.k===id(it));
+  if(it.y==="yt"){
+    const src=it.v?`https://www.youtube-nocookie.com/embed/${it.v}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1`
+      :`https://www.youtube-nocookie.com/embed/videoseries?list=UU${it.u.slice(2)}&index=${1+Math.floor(Math.random()*40)}&autoplay=1&mute=1&playsinline=1&rel=0`;
+    const link=it.v?`https://www.youtube.com/watch?v=${it.v}`:`https://www.youtube.com/channel/${it.u}/videos`;
+    return `<section class="card yt" data-k="${esc(id(it))}" data-c="${it.c}" data-src="${esc(src)}">
+      <div class="frame"><div class="ph">▶ Indlæser video…</div></div>
+      <div class="meta"><span class="pill">${C.e} ${C.n} · ${it.v?"Video":"Fra kanalen"}</span>
+        <h2 class="serif">${esc(it.t)}</h2><p>${esc(it.n)} · ${esc(it.d||"")}</p>
+        <a class="cta" style="margin-top:14px;padding:9px 13px;font-size:13px" href="${link}" target="_blank" rel="noopener">Åbn på YouTube</a></div>
+      <div class="side">
+        <button data-a="like"><span class="ic">👍</span>Mere</button>
+        <button data-a="less"><span class="ic">👎</span>Mindre</button>
+        <button data-a="save" class="${sv?"on":""}"><span class="ic">🔖</span>Gem</button>
+      </div></section>`;
+  }
+  if(it.y==="film") return `<section class="card film" data-k="${esc(id(it))}" data-c="${it.c}">
+    <video src="${esc(it.src)}" playsinline muted loop preload="metadata"></video>
+    <button class="sound">🔇 Tryk for lyd</button><div class="vprog"><i></i></div>
+    <div class="side">
+      <button data-a="like"><span class="ic">👍</span>Mere</button>
+      <button data-a="less"><span class="ic">👎</span>Mindre</button>
+      <button data-a="save" class="${sv?"on":""}"><span class="ic">🔖</span>Gem</button>
+    </div></section>`;
+  const lbl={f:"Fakta",d:"Dokumentar-tip",m:"Tankevækker",v:"Din video"}[it.y];
+  let cta="";
+  if(it.y==="v") cta=`<a class="cta" href="${esc(it.u)}" target="_blank" rel="noopener">▶ Åbn video</a>`;
+  else if(it.y==="d") cta=`<a class="cta" href="${esc(ytUrl(it))}" target="_blank" rel="noopener">▶ Find dokumentaren</a><div class="note">Åbner udenfor appen</div>`;
+  else cta=`<a class="cta" href="${esc(ytUrl(it))}" target="_blank" rel="noopener">▶ Se video om emnet</a>`;
+  return `<section class="card" data-k="${esc(id(it))}" data-c="${it.c}" style="background:linear-gradient(160deg,${C.g[0]},${C.g[1]} 75%)">
+    <div class="bgemoji">${C.e}</div>
+    <span class="pill">${C.e} ${C.n} · ${lbl}</span>
+    <h2 class="serif">${esc(it.t)}</h2>
+    ${it.b?`<p class="body">${esc(it.b)}</p>`:""}
+    ${it.x?`<p class="more">${esc(it.x)}</p>`:""}
+    ${cta}
+    <div class="side">
+      <button data-a="like"><span class="ic">👍</span>Mere</button>
+      <button data-a="less"><span class="ic">👎</span>Mindre</button>
+      <button data-a="save" class="${sv?"on":""}"><span class="ic">🔖</span>Gem</button>
+    </div>
+  </section>`;
+}
+function stopCard(){
+  return `<section class="card stop" style="background:linear-gradient(160deg,#2b2f1a,#0b0b10 75%);justify-content:center;padding-right:22px">
+    <div class="bgemoji">🌿</div>
+    <span class="pill">Dagens grænse nået</span>
+    <h2 class="serif">Godt gået. Det var ${profile.limit} minutters gode ting.</h2>
+    <p class="body">Gå en tur, læs i en bog, eller ring til en, du holder af. Feedet er her stadig i morgen.</p>
+    <button class="cta" id="moreAnyway" style="background:rgba(255,255,255,.15);color:#fff">Bare 5 minutter mere</button>
+  </section>`;
+}
+let stopShown=false;
+function fill(n){
+  const f=$("#feed");
+  for(let i=0;i<n;i++){
+    if(overLimit()){ if(!stopShown){f.insertAdjacentHTML("beforeend",stopCard());stopShown=true;bindStop()} return }
+    const it=pick(); seen.add(id(it)); recentCats.push(it.c);
+    f.insertAdjacentHTML("beforeend",cardHTML(it));
+  }
+  LS.set("seen",[...seen]);
+}
+function bindStop(){const b=$("#moreAnyway");if(b)b.onclick=()=>{limitOverride=true;usage.s=Math.max(0,profile.limit*60-300);stopShown=false;b.closest(".card").remove();fill(4)}}
+function overLimit(){return profile.limit>0 && usage.s>=profile.limit*60 && !limitOverride}
+
+$("#feed").addEventListener("scroll",()=>{
+  const f=$("#feed"); if(f.scrollTop+f.clientHeight*3>f.scrollHeight) fill(4);
+},{passive:true});
+
+$("#feed").addEventListener("click",e=>{
+  const b=e.target.closest("[data-a]"); if(!b)return;
+  const card=b.closest(".card"), c=card.dataset.c, k=card.dataset.k, a=b.dataset.a;
+  if(a==="like"){weights[c]=(weights[c]||0)+1.5;LS.set("weights",weights);toast("Mere "+CATS[c].n.toLowerCase()+" 👍")}
+  if(a==="less"){weights[c]=Math.max(0.05,(weights[c]||0)*0.4);LS.set("weights",weights);toast("Mindre "+CATS[c].n.toLowerCase());next(card)}
+  if(a==="save"){
+    const i=saved.findIndex(s=>s.k===k);
+    if(i>=0){saved.splice(i,1);b.classList.remove("on");toast("Fjernet fra gemte")}
+    else{const it=pool().find(x=>id(x)===k);saved.unshift({k,t:it.t,c,u:it.y==="v"?it.u:it.y==="film"?"#":it.y==="yt"?(it.v?`https://www.youtube.com/watch?v=${it.v}`:`https://www.youtube.com/channel/${it.u}/videos`):ytUrl(it)});b.classList.add("on");toast("Gemt 🔖")}
+    LS.set("saved",saved);
+  }
+});
+function next(card){const f=$("#feed");f.scrollTo({top:card.offsetTop+f.clientHeight,behavior:"smooth"})}
+
+/* ================== Video-afspilning ================== */
+let soundOn=false;
+const io=new IntersectionObserver(es=>es.forEach(e=>{
+  const v=e.target.querySelector("video"); if(!v)return;
+  if(e.isIntersecting&&e.intersectionRatio>0.6){v.muted=!soundOn;v.currentTime=0;v.play().catch(()=>{v.muted=true;v.play().catch(()=>{})})}
+  else v.pause();
+}),{threshold:[0,0.6,1]});
+new MutationObserver(()=>document.querySelectorAll(".card.film:not([data-o])").forEach(c=>{
+  c.dataset.o=1; io.observe(c); const v=c.querySelector("video"), bar=c.querySelector(".vprog i"), sb=c.querySelector(".sound");
+  v.addEventListener("timeupdate",()=>{bar.style.width=(v.currentTime/v.duration*100||0)+"%"});
+  const upd=()=>sb.textContent=v.muted?"🔇 Tryk for lyd":"🔊 Lyd til";
+  sb.onclick=e=>{e.stopPropagation();soundOn=v.muted;v.muted=!soundOn;if(v.paused)v.play().catch(()=>{});upd()};
+  v.onclick=()=>{v.paused?v.play().catch(()=>{}):v.pause()};
+  v.addEventListener("volumechange",upd);
+})).observe(document.getElementById("feed"),{childList:true});
+
+const ytio=new IntersectionObserver(es=>es.forEach(e=>{
+  const c=e.target, fr=c.querySelector(".frame");
+  if(e.isIntersecting&&e.intersectionRatio>0.6){
+    if(!fr.querySelector("iframe")){fr.innerHTML=`<iframe src="${c.dataset.src}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`}
+  } else if(!e.isIntersecting && fr.querySelector("iframe")){fr.innerHTML='<div class="ph">▶ Video</div>'}
+}),{threshold:[0,0.6]});
+new MutationObserver(()=>document.querySelectorAll(".card.yt:not([data-o])").forEach(c=>{c.dataset.o=1;ytio.observe(c)}))
+  .observe(document.getElementById("feed"),{childList:true});
+
+/* ================== Timer ================== */
+setInterval(()=>{
+  if(document.hidden||$("#app").classList.contains("hidden"))return;
+  usage.s++; if(usage.s%5===0)LS.set("usage",usage);
+  const m=Math.floor(usage.s/60);
+  $("#timer").textContent=profile.limit?`${m}/${profile.limit} min`:`${m} min`;
+},1000);
+
+/* ================== Sheets ================== */
+function openSheet(h){$("#panel").innerHTML=h;$("#sheet").classList.remove("hidden")}
+function closeSheet(){$("#sheet").classList.add("hidden")}
+$("#sheet").onclick=e=>{if(e.target.id==="sheet")closeSheet()};
+
+$("#savedBtn").onclick=()=>{
+  openSheet(`<h3>Gemte</h3><p class="sub">Ting du vil vende tilbage til.</p>
+   ${saved.length?saved.map(s=>`<div class="saved-item"><b>${esc(s.t)}</b><small>${CATS[s.c]?CATS[s.c].e+" "+CATS[s.c].n:""}</small><br><a href="${esc(s.u)}" target="_blank" rel="noopener">▶ Åbn video</a></div>`).join(""):`<p class="sub">Intet gemt endnu. Tryk 🔖 på et kort.</p>`}
+   <div class="row"><button class="btn" onclick="closeSheet()">Luk</button></div>`);
+};
+
+$("#addBtn").onclick=()=>{
+  openSheet(`<h3>Tilføj din egen video</h3><p class="sub">Har du fundet en god dokumentar eller video? Indsæt linket, så dukker den op i dit feed.</p>
+   <form id="addForm">
+    <label>Link (YouTube, DR TV, osv.)</label><input id="aU" type="url" placeholder="https://youtube.com/watch?v=..." required>
+    <label>Titel</label><input id="aT" placeholder="Fx ’Romerrigets fald’" required>
+    <label>Beskrivelse (valgfri)</label><input id="aB" placeholder="Hvorfor er den god?">
+    <label>Emne</label><select id="aC">${Object.entries(CATS).map(([k,v])=>`<option value="${k}">${v.e} ${v.n}</option>`).join("")}</select>
+    <div class="row"><button type="button" class="btn ghost" onclick="closeSheet()">Annullér</button><button class="btn">Tilføj</button></div>
+   </form>
+   ${custom.length?`<label style="margin-top:22px">Dine videoer (${custom.length})</label>${custom.map((v,i)=>`<div class="saved-item"><b>${esc(v.t)}</b><button class="linkbtn" data-del="${i}">Fjern</button></div>`).join("")}`:""}`);
+  $("#addForm").onsubmit=e=>{
+    e.preventDefault();
+    const u=$("#aU").value.trim(); if(!/^https?:\/\//.test(u)){toast("Linket skal starte med https://");return}
+    const v={c:$("#aC").value,t:$("#aT").value.trim(),b:$("#aB").value.trim(),u};
+    custom.push(v);LS.set("custom",custom);closeSheet();
+    $("#feed").insertAdjacentHTML("beforeend",cardHTML({...v,y:"v"}));
+    toast("Tilføjet til dit feed ✅");
+  };
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{custom.splice(+b.dataset.del,1);LS.set("custom",custom);$("#addBtn").onclick()});
+};
+
+$("#profBtn").onclick=()=>{
+  const tot=Object.values(weights).reduce((a,b)=>a+b,0)||1;
+  const top=Object.entries(weights).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const gl=(profile.goals||[]).map(g=>({klog:"blive klogere",under:"underholdning",motiv:"motivation",nyheder:"forstå nyhederne"}[g])).join(", ");
+  openSheet(`<h3>Din profil</h3><p class="sub">Feedet lærer af dine 👍 og 👎. Sådan ser dine interesser ud lige nu:</p>
+   <div class="bars">${top.map(([k,w])=>`<div class="bar"><span>${CATS[k].e} ${CATS[k].n}</span><div><i style="width:${Math.round(w/top[0][1]*100)}%"></i></div></div>`).join("")}</div>
+   <p class="sub" style="margin-top:14px">Mål: ${gl} · Tidsgrænse: ${profile.limit?profile.limit+" min/dag":"ingen"} · I dag: ${Math.floor(usage.s/60)} min</p>
+   <div class="row"><button class="btn ghost" onclick="closeSheet()">Luk</button><button class="btn" id="redo">Tag spørgeskemaet igen</button></div>`);
+  $("#redo").onclick=()=>{closeSheet();startQuiz(profile)};
+};
+
+/* ================== Start ================== */
+if(!profile||profile.v!==3){applyProfile(JSON.parse(JSON.stringify(CHAT_PROFILE)));seen=new Set();var fromChat=true}
+$("#onb").classList.add("hidden");$("#app").classList.remove("hidden");
+FILMS.forEach(f=>{if(!LS.get("film_"+id(f),false)){$("#feed").insertAdjacentHTML("beforeend",cardHTML(f));seen.add(id(f));recentCats.push(f.c);LS.set("film_"+id(f),true)}});
+fill(6);
+if(typeof fromChat!=="undefined")setTimeout(()=>toast("Profil sat op ud fra dine svar ✨"),400);
+</script>
+</body>
+</html>
