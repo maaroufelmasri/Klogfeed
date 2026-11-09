@@ -101,6 +101,16 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 .card.yt.blocked .tap{pointer-events:none}
 .card.yt.blocked .tap .pp{display:none}
 .card.yt.blocked .meta:before{content:"Tryk på ▶ i videoen for at starte";display:block;margin-bottom:8px;font-size:13px;font-weight:700;color:#f2c14e}
+body.fsmode .top{display:none}
+body.fsmode #feed{overflow:hidden}
+.card.yt.fs{z-index:10}
+.card.yt.fs .meta,.card.yt.fs .vprog,.card.yt.fs .side>button:not([data-a=fs]){display:none}
+.card.yt.fs .side{top:calc(var(--safe-t) + 10px);bottom:auto;right:10px}
+.card.yt.fs .frame:not(.vert){position:fixed;top:50%;left:50%;width:100vh;width:100dvh;height:100vw;aspect-ratio:auto;transform:translate(-50%,-50%) rotate(90deg);z-index:5}
+.card.yt.fs .frame.vert{position:fixed;inset:0;width:100%;height:100%;transform:none;aspect-ratio:auto;z-index:5;top:0;bottom:0;left:0;right:0;max-width:none}
+.card.yt.fs .tap{position:fixed;z-index:6}
+.card.yt.fs .side{position:fixed;z-index:7}
+@media (orientation:landscape){ .card.yt.fs .frame:not(.vert){transform:none;top:0;left:0;width:100%;height:100%} }
 .toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 24px);transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;opacity:0;transition:.25s;z-index:30;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%)}
 
@@ -132,7 +142,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v17</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v18</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -485,6 +495,7 @@ function cardHTML(it){
         <h2>${esc(it.t)}</h2><p>${esc(it.n)}${it.d?" · "+esc(it.d):""} · <a href="${link}" target="_blank" rel="noopener">YouTube ↗</a></p></div>
       <div class="vprog"><i></i></div>
       <div class="side">
+        <button data-a="fs"><span class="ic">⛶</span><span class="fsl">Fuld</span></button>
         <button data-a="like"><span class="ic">👍</span>Mere</button>
         <button data-a="less"><span class="ic">👎</span>Mindre</button>
         <button data-a="save" class="${sv?"on":""}"><span class="ic">🔖</span>Gem</button>
@@ -546,6 +557,9 @@ $("#feed").addEventListener("scroll",()=>{
 $("#feed").addEventListener("click",e=>{
   const b=e.target.closest("[data-a]"); if(!b)return;
   const card=b.closest(".card"), c=card.dataset.c, k=card.dataset.k, a=b.dataset.a;
+  if(a==="fs"){ const on=!card.classList.contains("fs"); document.querySelectorAll(".card.fs").forEach(x=>x.classList.remove("fs"));
+    card.classList.toggle("fs",on); document.body.classList.toggle("fsmode",on); b.querySelector(".fsl").textContent=on?"Luk":"Fuld"; b.querySelector(".ic").textContent=on?"✕":"⛶";
+    if(on){ try{ screen.orientation&&screen.orientation.lock&&screen.orientation.lock("landscape").catch(()=>{}) }catch(e){} } return }
   if(a==="like"){learn(card,"like");weights[c]=(weights[c]||0)+1.5;LS.set("weights",weights);toast("Mere "+CATS[c].n.toLowerCase()+" 👍")}
   if(a==="less"){learn(card,"dislike");weights[c]=Math.max(0.05,(weights[c]||0)*0.4);LS.set("weights",weights);toast("Mindre "+CATS[c].n.toLowerCase());next(card)}
   if(a==="save"){
@@ -610,7 +624,8 @@ function startPlayer(c){
   try{ c._player=new YT.Player(m,opts) }catch(err){ plainEmbed(c,"Fejl: "+err.message); return }
   clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(c._vis && !c._ready) plainEmbed(c,"YouTube svarede ikke – simpel afspiller") },9000);
 }
-function stopPlayer(c){ c._played=false; c._ready=false; c._triedSound=false; c._noSound=false; c._userPaused=false; c.classList.remove("blocked"); if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
+function exitFs(){ document.querySelectorAll('.card.fs').forEach(x=>{x.classList.remove('fs'); const bb=x.querySelector('[data-a=fs]'); if(bb){bb.querySelector('.fsl').textContent='Fuld'; bb.querySelector('.ic').textContent='⛶'}}); document.body.classList.remove('fsmode') }
+function stopPlayer(c){ if(c.classList.contains('fs')) exitFs(); c._played=false; c._ready=false; c._triedSound=false; c._noSound=false; c._userPaused=false; c.classList.remove("blocked"); if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
 function pauseCard(c){ try{ if(c._player&&c._player.pauseVideo) c._player.pauseVideo() }catch(e){} const v=c.querySelector&&c.querySelector("video"); if(v) v.pause() }
 let _scrollT=null, _lastCur=null;
 document.getElementById("feed").addEventListener("scroll",()=>{
