@@ -132,7 +132,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v14</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v15</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -336,7 +336,7 @@ const CONTENT = [
 ];
 
 // Udvalgte, seriøse YouTube-kanaler (u = kanalens uploads, v = enkelt video)
-const YT = [
+const YT_SOURCES = [
  {c:"antik",n:"Historia Civilis",d:"Grundige, rolige forklaringer af Roms historie – Cæsar, borgerkrige og slag.",u:"UCv_vLHiWVBh_FR9vbeuiY-A"},
  {c:"antik",n:"Kings and Generals",d:"Animerede dokumentarer om slag og imperier gennem historien.",u:"UCMmaBzfCCwZ2KqaBJjkj0fw"},
  {c:"antik",n:"Fall of Civilizations",d:"Lange, stemningsfulde dokumentarer om civilisationer der faldt.",u:"UCT6Y5JJPKe_JDMivpKgVXew"},
@@ -355,7 +355,7 @@ const YT = [
  {c:"filo",n:"Daily Stoic",d:"Stoisk filosofi til hverdagen med Ryan Holiday.",u:"UC6N2Vvwh5Pb9F530wDt_fjQ"},
  {c:"motiv",n:"Daily Stoic",d:"Disciplin og mental styrke med stoisk filosofi.",u:"UC6N2Vvwh5Pb9F530wDt_fjQ"},
 ];
-YT.forEach(x=>{x.y="yt";if(!x.t)x.t=x.n});
+YT_SOURCES.forEach(x=>{x.y="yt";if(!x.t)x.t=x.n});
 const FILMS = [
  {c:"antik",y:"film",t:"Varus-slaget: Rom mister tre legioner",src:"videos/teutoburg.mp4"},
 ];
@@ -451,7 +451,7 @@ function typeWeight(y){
   return w;
 }
 function ytId(u){const m=String(u).match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/);return m?m[1]:null}
-function pool(){return [...FILMS, ...YT, ...custom.map(v=>ytId(v.u)?{...v,y:"yt",v:ytId(v.u),n:"Din video",d:v.b||""}:{...v,y:"v"})]}
+function pool(){return [...FILMS, ...YT_SOURCES, ...custom.map(v=>ytId(v.u)?{...v,y:"yt",v:ytId(v.u),n:"Din video",d:v.b||""}:{...v,y:"v"})]}
 function pick(){
   let items=pool().filter(it=>it.u||!seen.has(id(it)));
   if(items.length<3){seen=new Set();items=pool()}
