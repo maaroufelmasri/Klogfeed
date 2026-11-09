@@ -72,6 +72,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 .timer{font-size:12px;font-weight:600;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.4);backdrop-filter:blur(6px);color:var(--mut)}
 .card.yt{padding:calc(var(--safe-t) + 64px) 0 calc(var(--safe-b) + 24px);justify-content:center;background:#07070b}
 .card.yt .frame{position:relative;width:100%;aspect-ratio:16/9;background:#000}
+.card.yt .frame.vert{aspect-ratio:9/16;width:auto;height:min(68vh,calc(100vw*16/9));margin:0 auto}
 .card.yt .mount,.card.yt .frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .card.yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .card.yt .meta{padding:18px 78px 0 18px}
@@ -115,7 +116,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v4 · kun video</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v5 · smart</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔇</button>
@@ -453,9 +454,9 @@ function cardHTML(it){
     const src=it.v?`https://www.youtube-nocookie.com/embed/${it.v}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1`
       :`https://www.youtube-nocookie.com/embed/videoseries?list=UU${it.u.slice(2)}&index=${1+Math.floor(Math.random()*40)}&autoplay=1&mute=1&playsinline=1&rel=0`;
     const link=it.v?`https://www.youtube.com/watch?v=${it.v}`:`https://www.youtube.com/channel/${it.u}/videos`;
-    return `<section class="card yt" data-k="${esc(id(it))}" data-c="${it.c}" data-src="${esc(src)}" data-v="${it.v||""}" data-u="${it.u||""}">
-      <div class="frame"><div class="ph">▶ Indlæser video…</div><div class="mount"></div></div>
-      <div class="meta"><span class="pill">${C.e} ${C.n} · ${it.v?"Video":"Fra kanalen"}</span>
+    return `<section class="card yt" data-k="${esc(id(it))}" data-c="${it.c}" data-src="${esc(src)}" data-v="${it.v||""}" data-u="${it.u||""}" data-q="${esc(it.q||"")}" data-ch="${it.ch||""}">
+      <div class="frame${it.short?" vert":""}"><div class="ph">▶ Indlæser video…</div><div class="mount"></div></div>
+      <div class="meta"><span class="pill">${C.e} ${C.n}${it.short?" · Short":""}</span>
         <h2 class="serif">${esc(it.t)}</h2><p>${esc(it.n)} · ${esc(it.d||"")}</p>
         <a class="cta" style="margin-top:14px;padding:9px 13px;font-size:13px" href="${link}" target="_blank" rel="noopener">Åbn på YouTube</a></div>
       <div class="side">
@@ -505,10 +506,10 @@ function fill(n){
   const f=$("#feed");
   for(let i=0;i<n;i++){
     if(overLimit()){ if(!stopShown){f.insertAdjacentHTML("beforeend",stopCard());stopShown=true;bindStop()} return }
-    const it=pick(); seen.add(id(it)); recentCats.push(it.c);
+    const it=(apiKey&&smartNext())||pick(); seen.add(id(it)); recentCats.push(it.c); RENDERED[id(it)]=it;
     f.insertAdjacentHTML("beforeend",cardHTML(it));
   }
-  LS.set("seen",[...seen]);
+  LS.set("seen",[...seen]); if(apiKey){ saveSmart(); ensureBuffer() }
 }
 function bindStop(){const b=$("#moreAnyway");if(b)b.onclick=()=>{limitOverride=true;usage.s=Math.max(0,profile.limit*60-300);stopShown=false;b.closest(".card").remove();fill(4)}}
 function overLimit(){return profile.limit>0 && usage.s>=profile.limit*60 && !limitOverride}
@@ -520,12 +521,12 @@ $("#feed").addEventListener("scroll",()=>{
 $("#feed").addEventListener("click",e=>{
   const b=e.target.closest("[data-a]"); if(!b)return;
   const card=b.closest(".card"), c=card.dataset.c, k=card.dataset.k, a=b.dataset.a;
-  if(a==="like"){weights[c]=(weights[c]||0)+1.5;LS.set("weights",weights);toast("Mere "+CATS[c].n.toLowerCase()+" 👍")}
-  if(a==="less"){weights[c]=Math.max(0.05,(weights[c]||0)*0.4);LS.set("weights",weights);toast("Mindre "+CATS[c].n.toLowerCase());next(card)}
+  if(a==="like"){learn(card,"like");weights[c]=(weights[c]||0)+1.5;LS.set("weights",weights);toast("Mere "+CATS[c].n.toLowerCase()+" 👍")}
+  if(a==="less"){learn(card,"dislike");weights[c]=Math.max(0.05,(weights[c]||0)*0.4);LS.set("weights",weights);toast("Mindre "+CATS[c].n.toLowerCase());next(card)}
   if(a==="save"){
     const i=saved.findIndex(s=>s.k===k);
     if(i>=0){saved.splice(i,1);b.classList.remove("on");toast("Fjernet fra gemte")}
-    else{const it=pool().find(x=>id(x)===k);saved.unshift({k,t:it.t,c,u:it.y==="v"?it.u:it.y==="film"?"#":it.y==="yt"?(it.v?`https://www.youtube.com/watch?v=${it.v}`:`https://www.youtube.com/channel/${it.u}/videos`):ytUrl(it)});b.classList.add("on");toast("Gemt 🔖")}
+    else{const it=RENDERED[k]||pool().find(x=>id(x)===k);saved.unshift({k,t:it.t,c,u:it.y==="v"?it.u:it.y==="film"?"#":it.y==="yt"?(it.v?`https://www.youtube.com/watch?v=${it.v}`:`https://www.youtube.com/channel/${it.u}/videos`):ytUrl(it)});b.classList.add("on");toast("Gemt 🔖")}
     LS.set("saved",saved);
   }
 });
@@ -561,14 +562,14 @@ function startPlayer(c){
       if(e.data===1){ try{ const t=(e.target.getVideoData().title||"");
         if(BAD.test(t)){ if(c.dataset.u) e.target.nextVideo(); else next(c) }
         else { const h=c.querySelector(".meta h2"); if(c.dataset.u&&h&&t) h.textContent=t } }catch(err){} }
-      if(e.data===0) next(c) },
+      if(e.data===0){ if(c.dataset.q) learn(c,"watch",1.2); next(c) } },
     onError:()=>{ fr.querySelector(".ph").textContent="Videoen kunne ikke afspilles – swipe videre"; }
   }};
   if(c.dataset.v) opts.videoId=c.dataset.v;
   else { vars.listType="playlist"; vars.list="UU"+c.dataset.u.slice(2); vars.index=Math.floor(Math.random()*40) }
   c._player=new YT.Player(m,opts);
 }
-function stopPlayer(c){ if(c._player){ try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
+function stopPlayer(c){ if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
 const ytio=new IntersectionObserver(es=>es.forEach(e=>{
   const c=e.target;
   if(e.isIntersecting&&e.intersectionRatio>0.6){ ytReady?startPlayer(c):ytQueue.push(()=>startPlayer(c)) }
@@ -630,15 +631,122 @@ $("#profBtn").onclick=()=>{
   openSheet(`<h3>Din profil</h3><p class="sub">Feedet lærer af dine 👍 og 👎. Sådan ser dine interesser ud lige nu:</p>
    <div class="bars">${top.map(([k,w])=>`<div class="bar"><span>${CATS[k].e} ${CATS[k].n}</span><div><i style="width:${Math.round(w/top[0][1]*100)}%"></i></div></div>`).join("")}</div>
    <p class="sub" style="margin-top:14px">Mål: ${gl} · Tidsgrænse: ${profile.limit?profile.limit+" min/dag":"ingen"} · I dag: ${Math.floor(usage.s/60)} min</p>
-   <div class="row"><button class="btn ghost" onclick="closeSheet()">Luk</button><button class="btn" id="redo">Tag spørgeskemaet igen</button></div>`);
+   <label>YouTube-nøgle ${apiKey?"✅ aktiv":"(mangler – så bruges faste kanaler)"}</label>
+   <input id="kIn" placeholder="AIzaSy…" value="${esc(apiKey)}" autocomplete="off">
+   <label>Videolængde</label>
+   <select id="lenIn"><option value="short">Mest korte (under 4 min)</option><option value="mix">Blanding af korte og mellemlange</option><option value="long">Gerne lange dokumentarer</option></select>
+   <p class="sub" style="margin-top:8px">Søgninger i dag: ${quota.n}/80</p>
+   <div class="row"><button class="btn ghost" id="resetL">Nulstil læring</button><button class="btn" id="saveK">Gem</button></div>
+   <div class="row"><button class="btn ghost" onclick="closeSheet()">Luk</button><button class="btn ghost" id="redo">Tag spørgeskemaet igen</button></div>`);
+  $("#lenIn").value=lenPref;
   $("#redo").onclick=()=>{closeSheet();startQuiz(profile)};
+  $("#saveK").onclick=()=>{ apiKey=$("#kIn").value.trim(); lenPref=$("#lenIn").value; LS.set("ytkey",apiKey); LS.set("lenpref",lenPref);
+    for(const k in cand) delete cand[k]; closeSheet(); toast(apiKey?"Gemt – finder videoer til dig…":"Gemt");
+    if(apiKey){ ensureBuffer().then(()=>{ const f=$("#feed"); const cur=Math.round(f.scrollTop/f.clientHeight); [...f.children].slice(cur+1).forEach(x=>x.remove()); fill(5) }) } };
+  $("#resetL").onclick=()=>{ qw={};chAff={};dynQ={};saveSmart();toast("Læring nulstillet") };
 };
+
+/* ================== Smart feed: YouTube-søgning der lærer ================== */
+const QUERIES={
+ bander:["Pablo Escobar documentary","Medellin cartel true story","Freeway Rick Ross story","crack epidemic 1980s documentary","El Chapo escape story","Frank Lucas true story","Berlin clan crime documentary","Hells Angels Bandidos biker war Scandinavia","London gangs documentary","drug lord downfall story","Narcos real story","Snowfall real story","prison gang documentary","mafia boss true story"],
+ krig:["Operation Mincemeat explained","D-Day explained","Battle of Stalingrad documentary","WW2 untold stories","Danish resistance WW2","Band of Brothers real story","WW2 secret operation","WW2 sniper story","WW2 great escape true story"],
+ antik:["Roman Empire explained","Julius Caesar story","Battle of Teutoburg Forest","Roman legion explained","gladiators real history","fall of Rome explained","Hannibal Alps story","Spartans real history"],
+ koldkrig:["Cold War spy story","Cuban missile crisis explained","KGB spy documentary","Berlin Wall escape story","CIA secret operation story"],
+ sport:["Mike Tyson story","Muhammad Ali documentary","Bruce Lee philosophy","boxing history greatest fights","UFC fighter life story","Khabib Nurmagomedov discipline","fighter training camp documentary","Conor McGregor rise story"],
+ kultur:["hip hop history documentary","Tupac Biggie story","Kendrick Lamar story","50 Cent life story","Eminem story","how hip hop started Bronx","Narcos behind the scenes","Snowfall behind the scenes"],
+ okonomi:["Warren Buffett advice","compound interest explained","investing for beginners explained","how the stock market works","how money works explained"],
+ sund:["science of building muscle","sleep science explained","dopamine explained","fitness discipline routine"],
+ motiv:["David Goggins motivation","discipline motivation speech","Jocko Willink discipline","self discipline explained","mental toughness story"],
+ filo:["stoicism explained","Marcus Aurelius meditations explained","Seneca shortness of life"],
+ geo:["geopolitics explained map","why Taiwan matters","Ukraine war explained map","Strait of Hormuz explained","Greenland geopolitics explained"],
+ overlev:["survival story documentary","Andes plane crash survivors","Shackleton Endurance story","Thai cave rescue story","lost at sea survival story"],
+ rum:["space explained","black holes explained","Voyager 1 story"],
+ videnskab:["science explained","how DNA works explained"],
+ psyk:["psychology explained","how the brain works"],
+ tek:["how the internet works explained","AI explained simply"],
+ viking:["vikings documentary","Harald Bluetooth story"],
+ middel:["medieval history documentary","black death documentary"],
+ natur:["nature documentary animals","octopus intelligence"],
+ opfind:["greatest inventions history","Niels Bohr story"],
+};
+let apiKey=LS.get("ytkey",""), lenPref=LS.get("lenpref","mix");
+let qw=LS.get("qw",{}), chAff=LS.get("chaff",{}), dynQ=LS.get("dynq",{}), qcache=LS.get("qcache",{});
+let vseen=new Set(LS.get("vseen",[])); const cand={}; let fetching=false; const RENDERED={};
+const today2=new Date().toISOString().slice(0,10);
+let quota=LS.get("quota",{d:today2,n:0}); if(quota.d!==today2) quota={d:today2,n:0};
+function saveSmart(){LS.set("qw",qw);LS.set("chaff",chAff);LS.set("dynq",dynQ);LS.set("vseen",[...vseen].slice(-3000))}
+function isoDur(s){const m=String(s).match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);return m?(+m[1]||0)*3600+(+m[2]||0)*60+(+m[3]||0):0}
+function fmtN(n){return n>=1e6?(n/1e6).toFixed(1).replace(".",",")+" mio.":n>=1e3?Math.round(n/1e3)+"k":String(n)}
+function fmtD(s){return s<60?s+" sek":Math.round(s/60)+" min"}
+function smartCats(){return Object.keys(CATS).filter(k=>(weights[k]||0)>0.3)}
+function wpick(arr,wf){const ws=arr.map(wf);let r=Math.random()*ws.reduce((a,b)=>a+b,0);for(let i=0;i<arr.length;i++){r-=ws[i];if(r<=0)return arr[i]}return arr[arr.length-1]}
+function queriesFor(c){return [...(QUERIES[c]||[]),...(dynQ[c]||[])]}
+function durParam(){ if(lenPref==="short") return "short"; if(lenPref==="long") return Math.random()<.5?"medium":"long"; return Math.random()<.55?"short":"medium" }
+async function ytFetch(path,params){
+  const u="https://www.googleapis.com/youtube/v3/"+path+"?"+new URLSearchParams({...params,key:apiKey});
+  const r=await fetch(u); const j=await r.json(); if(j.error) throw new Error(j.error.message||"API-fejl"); return j;
+}
+async function fetchQuery(c,q){
+  const dur=durParam(), ck=q+"|"+dur;
+  let items=null;
+  if(qcache[ck] && Date.now()-qcache[ck].t<3*864e5) items=qcache[ck].items;
+  else {
+    if(quota.n>=80) return;
+    quota.n++; LS.set("quota",quota);
+    const s=await ytFetch("search",{part:"snippet",type:"video",videoEmbeddable:"true",maxResults:"25",q,videoDuration:dur,safeSearch:"moderate",relevanceLanguage:profile.lang==="da"?"da":"en"});
+    const ids=s.items.map(x=>x.id.videoId).filter(Boolean); if(!ids.length) return;
+    const v=await ytFetch("videos",{part:"snippet,contentDetails,statistics",id:ids.join(",")});
+    items=v.items.map(x=>({v:x.id,t:x.snippet.title,n:x.snippet.channelTitle,ch:x.snippet.channelId,views:+(x.statistics.viewCount||0),likes:+(x.statistics.likeCount||0),sec:isoDur(x.contentDetails.duration)}))
+      .filter(x=>x.views>=(x.sec<=70?150000:40000) && !BAD.test(x.t) && x.sec>=15 && x.sec<=(lenPref==="long"?5400:1500));
+    qcache[ck]={t:Date.now(),items};
+    const ks=Object.keys(qcache); if(ks.length>120){ks.sort((a,b)=>qcache[a].t-qcache[b].t).slice(0,ks.length-120).forEach(k=>delete qcache[k])}
+    LS.set("qcache",qcache);
+  }
+  const fresh=items.filter(x=>!vseen.has(x.v)&&(chAff[x.ch]||0)>-3&&!(cand[c]||[]).some(y=>y.v===x.v));
+  fresh.forEach(x=>{x.c=c;x.q=q;x.y="yt";x.short=x.sec<=70;x.d=fmtN(x.views)+" visninger · "+fmtD(x.sec)});
+  (cand[c]=cand[c]||[]).push(...fresh);
+}
+let bufPromise=null;
+function ensureBuffer(){ if(!apiKey) return Promise.resolve(); if(bufPromise) return bufPromise; bufPromise=_ensure().finally(()=>{bufPromise=null}); return bufPromise }
+async function _ensure(){
+  fetching=true;
+  const total=Object.values(cand).reduce((a,b)=>a+b.length,0); if(total>=15){fetching=false;return}
+  try{
+    for(let guard=0;guard<3;guard++){
+      const cats=smartCats(); const low=cats.filter(c=>(cand[c]||[]).length<3); if(!low.length) break;
+      const c=wpick(low,k=>weights[k]||0.1); const qs=queriesFor(c); if(!qs.length) break;
+      const q=wpick(qs,x=>qw[x]??1); await fetchQuery(c,q);
+    }
+  }catch(e){ toast("YouTube: "+String(e.message).slice(0,60)); if(/key|API key|referer|forbidden/i.test(e.message)) {} }
+  fetching=false;
+}
+function smartNext(){
+  const cats=smartCats().filter(c=>(cand[c]||[]).length);
+  if(!cats.length) return null;
+  const c=wpick(cats,k=>(weights[k]||0.1)*(recentCats.slice(-2).includes(k)?0.2:1));
+  const L=cand[c]; L.sort((a,b)=>score(b)-score(a));
+  const i=Math.floor(Math.random()*Math.min(3,L.length)); const it=L.splice(i,1)[0];
+  vseen.add(it.v); return it;
+}
+function score(x){return Math.log10(x.views+10)*(1+Math.min(x.likes/(x.views+1)*20,1))*(qw[x.q]??1)*Math.max(0.2,1+(chAff[x.ch]||0)*0.25)}
+function learn(card,kind,frac){
+  const c=card.dataset.c, q=card.dataset.q, ch=card.dataset.ch;
+  const up=(o,k,f,min=0.15,max=6)=>{if(k)o[k]=Math.min(max,Math.max(min,(o[k]??1)*f))};
+  if(kind==="skip"){ weights[c]=Math.max(0.3,(weights[c]||1)*0.95); up(qw,q,0.85); if(ch) chAff[ch]=(chAff[ch]||0)-0.5 }
+  if(kind==="watch"){ weights[c]=(weights[c]||1)+0.3*frac; up(qw,q,1+0.25*frac); if(ch) chAff[ch]=(chAff[ch]||0)+frac }
+  if(kind==="like"){ up(qw,q,1.5); if(ch) chAff[ch]=(chAff[ch]||0)+2;
+    const t=card.querySelector(".meta h2")?.textContent||""; const clean=t.replace(/[|\-–:#(].*$/,"").replace(/[^\p{L}\p{N} ']/gu," ").trim().split(/\s+/).slice(0,6).join(" ");
+    if(clean.length>6){ dynQ[c]=[clean,...(dynQ[c]||[]).filter(x=>x!==clean)].slice(0,8); qw[clean]=2 } }
+  if(kind==="dislike"){ up(qw,q,0.4); if(ch) chAff[ch]=(chAff[ch]||0)-3 }
+  LS.set("weights",weights); saveSmart();
+}
 
 /* ================== Start ================== */
 if(!profile||profile.v!==3){applyProfile(JSON.parse(JSON.stringify(CHAT_PROFILE)));seen=new Set();var fromChat=true}
 $("#onb").classList.add("hidden");$("#app").classList.remove("hidden");
 FILMS.forEach(f=>{if(!LS.get("film_"+id(f),false)){$("#feed").insertAdjacentHTML("beforeend",cardHTML(f));seen.add(id(f));recentCats.push(f.c);LS.set("film_"+id(f),true)}});
 fill(6);
+if(apiKey){ ensureBuffer().then(()=>{ const f=$("#feed"); const cur=Math.round(f.scrollTop/f.clientHeight); [...f.children].slice(cur+1).forEach(x=>x.remove()); fill(5) }) }
 if(typeof fromChat!=="undefined")setTimeout(()=>toast("Profil sat op ud fra dine svar ✨"),400);
 </script>
 </body>
