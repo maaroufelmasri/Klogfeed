@@ -116,7 +116,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v9</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v10</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -676,17 +676,17 @@ $("#profBtn").onclick=()=>{
 
 /* ================== Smart feed: YouTube-søgning der lærer ================== */
 const QUERIES={
- bander:["Pablo Escobar documentary","Medellin cartel true story","Freeway Rick Ross story","crack epidemic 1980s documentary","El Chapo escape story","Frank Lucas true story","Berlin clan crime documentary","Hells Angels Bandidos biker war Scandinavia","London gangs documentary","drug lord downfall story","Narcos real story","Snowfall real story","prison gang documentary","mafia boss true story"],
- krig:["Operation Mincemeat explained","D-Day explained","Battle of Stalingrad documentary","WW2 untold stories","Danish resistance WW2","Band of Brothers real story","WW2 secret operation","WW2 sniper story","WW2 great escape true story"],
- antik:["Roman Empire explained","Julius Caesar story","Battle of Teutoburg Forest","Roman legion explained","gladiators real history","fall of Rome explained","Hannibal Alps story","Spartans real history"],
+ bander:["da:rockerkrigen dokumentar","da:bandekonflikt Danmark dokumentar","da:Hells Angels Danmark historie","Pablo Escobar documentary","Medellin cartel true story","Freeway Rick Ross story","crack epidemic 1980s documentary","El Chapo escape story","Frank Lucas true story","Berlin clan crime documentary","Hells Angels Bandidos biker war Scandinavia","London gangs documentary","drug lord downfall story","Narcos real story","Snowfall real story","prison gang documentary","mafia boss true story"],
+ krig:["da:besættelsen Danmark dokumentar","da:modstandsbevægelsen historie","da:9. april 1940","Operation Mincemeat explained","D-Day explained","Battle of Stalingrad documentary","WW2 untold stories","Danish resistance WW2","Band of Brothers real story","WW2 secret operation","WW2 sniper story","WW2 great escape true story"],
+ antik:["da:Romerriget forklaret","da:vikinger dokumentar","Roman Empire explained","Julius Caesar story","Battle of Teutoburg Forest","Roman legion explained","gladiators real history","fall of Rome explained","Hannibal Alps story","Spartans real history"],
  koldkrig:["Cold War spy story","Cuban missile crisis explained","KGB spy documentary","Berlin Wall escape story","CIA secret operation story"],
- sport:["Mike Tyson story","Muhammad Ali documentary","Bruce Lee philosophy","boxing history greatest fights","UFC fighter life story","Khabib Nurmagomedov discipline","fighter training camp documentary","Conor McGregor rise story"],
- kultur:["hip hop history documentary","Tupac Biggie story","Kendrick Lamar story","50 Cent life story","Eminem story","how hip hop started Bronx","Narcos behind the scenes","Snowfall behind the scenes"],
- okonomi:["Warren Buffett advice","compound interest explained","investing for beginners explained","how the stock market works","how money works explained"],
+ sport:["da:dansk bokser historie","da:MMA dansk","Mike Tyson story","Muhammad Ali documentary","Bruce Lee philosophy","boxing history greatest fights","UFC fighter life story","Khabib Nurmagomedov discipline","fighter training camp documentary","Conor McGregor rise story"],
+ kultur:["da:dansk rap historie","da:dansk hiphop dokumentar","hip hop history documentary","Tupac Biggie story","Kendrick Lamar story","50 Cent life story","Eminem story","how hip hop started Bronx","Narcos behind the scenes","Snowfall behind the scenes"],
+ okonomi:["da:investering for begyndere","da:privatøkonomi tips","Warren Buffett advice","compound interest explained","investing for beginners explained","how the stock market works","how money works explained"],
  sund:["science of building muscle","sleep science explained","dopamine explained","fitness discipline routine"],
- motiv:["David Goggins motivation","discipline motivation speech","Jocko Willink discipline","self discipline explained","mental toughness story"],
+ motiv:["da:motivation dansk","da:disciplin og vaner","David Goggins motivation","discipline motivation speech","Jocko Willink discipline","self discipline explained","mental toughness story"],
  filo:["stoicism explained","Marcus Aurelius meditations explained","Seneca shortness of life"],
- geo:["geopolitics explained map","why Taiwan matters","Ukraine war explained map","Strait of Hormuz explained","Greenland geopolitics explained"],
+ geo:["da:Grønland geopolitik","da:Ukraine krigen forklaret","geopolitics explained map","why Taiwan matters","Ukraine war explained map","Strait of Hormuz explained","Greenland geopolitics explained"],
  overlev:["survival story documentary","Andes plane crash survivors","Shackleton Endurance story","Thai cave rescue story","lost at sea survival story"],
  rum:["space explained","black holes explained","Voyager 1 story"],
  videnskab:["science explained","how DNA works explained"],
@@ -716,18 +716,31 @@ async function ytFetch(path,params){
   const u="https://www.googleapis.com/youtube/v3/"+path+"?"+new URLSearchParams({...params,key:apiKey});
   const r=await fetch(u); const j=await r.json(); if(j.error){ dlog("API-FEJL "+path+": "+j.error.message); throw new Error(j.error.message||"API-fejl") } dlog("API "+path+" ok ("+(j.items||[]).length+")"); return j;
 }
+const W_OK=new Set("the of and to in is how why what who story a you his was this that with for real true history explained og det er på af til med som hvordan hvorfor historien den der ikke var han dansk danmark".split(" "));
+const W_BAD=new Set("de o mais todos sobre foi seu sua mundo vida maior mejor gran el la los las del que y por para historia cómo como una uno não em dos das do der die das und ist wie warum nicht ein eine le les des et est pourquoi comment une il di che della per è ve bir ile ve için nasıl jak się na że po и в на что".split(" "));
+function langOK(x,lenient){
+  const L=(x.al||x.dl||"").toLowerCase();
+  if(L) return L.startsWith("en")||L.startsWith("da");
+  const t=x.t||"";
+  if(/[\u0400-\u04FF\u0600-\u06FF\u0900-\u097F\u0E00-\u0E7F\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF\u0590-\u05FF]/.test(t)) return false;
+  if(/[ñãõçğşıłżźćńőűčřšž¿¡]/i.test(t)) return false;
+  if(/[æøå]/i.test(t)) return true;
+  const ws=t.toLowerCase().replace(/[^\p{L} ]/gu," ").split(/\s+/).filter(Boolean);
+  let ok=0,bad=0; ws.forEach(w=>{ if(W_OK.has(w)) ok++; if(W_BAD.has(w)) bad++ });
+  return bad<=ok+(lenient?1:0);
+}
 async function fetchQuery(c,q){
-  const dur=durParam(), ck=q+"|"+dur;
+  const dur=durParam(), ck="v2|"+q+"|"+dur;
   let items=null;
   if(qcache[ck] && Date.now()-qcache[ck].t<3*864e5) items=qcache[ck].items;
   else {
     if(quota.n>=80) return;
     quota.n++; LS.set("quota",quota);
-    const s=await ytFetch("search",{part:"snippet",type:"video",videoEmbeddable:"true",maxResults:"25",q,videoDuration:dur,safeSearch:"moderate",relevanceLanguage:profile.lang==="da"?"da":"en"});
+    const isDa=q.startsWith("da:"); const s=await ytFetch("search",{part:"snippet",type:"video",videoEmbeddable:"true",maxResults:"25",q:isDa?q.slice(3):q,videoDuration:isDa&&dur==="short"?"any":dur,safeSearch:"moderate",relevanceLanguage:isDa?"da":"en",regionCode:"DK"});
     const ids=s.items.map(x=>x.id.videoId).filter(Boolean); if(!ids.length) return;
     const v=await ytFetch("videos",{part:"snippet,contentDetails,statistics",id:ids.join(",")});
-    items=v.items.map(x=>({v:x.id,t:x.snippet.title,n:x.snippet.channelTitle,ch:x.snippet.channelId,views:+(x.statistics.viewCount||0),likes:+(x.statistics.likeCount||0),sec:isoDur(x.contentDetails.duration)}))
-      .filter(x=>x.views>=(x.sec<=70?150000:40000) && !BAD.test(x.t) && x.sec>=15 && x.sec<=(lenPref==="long"?5400:1500));
+    items=v.items.map(x=>({v:x.id,t:x.snippet.title,al:x.snippet.defaultAudioLanguage||"",dl:x.snippet.defaultLanguage||"",n:x.snippet.channelTitle,ch:x.snippet.channelId,views:+(x.statistics.viewCount||0),likes:+(x.statistics.likeCount||0),sec:isoDur(x.contentDetails.duration)}))
+      .filter(x=>langOK(x,isDa) && x.views>=(x.sec<=70?(x.al.startsWith("da")?20000:150000):(x.al.startsWith("da")?5000:40000)) && !BAD.test(x.t) && x.sec>=15 && x.sec<=(lenPref==="long"?5400:1500));
     qcache[ck]={t:Date.now(),items};
     const ks=Object.keys(qcache); if(ks.length>120){ks.sort((a,b)=>qcache[a].t-qcache[b].t).slice(0,ks.length-120).forEach(k=>delete qcache[k])}
     LS.set("qcache",qcache);
