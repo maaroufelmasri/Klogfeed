@@ -98,6 +98,9 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 .card.yt .side{z-index:4;bottom:calc(var(--safe-b) + 90px)}
 .card.yt .vprog{z-index:4}
 .card.yt .ph{z-index:1}
+.card.yt.blocked .tap{pointer-events:none}
+.card.yt.blocked .tap .pp{display:none}
+.card.yt.blocked .meta:before{content:"Tryk på ▶ i videoen for at starte";display:block;margin-bottom:8px;font-size:13px;font-weight:700;color:#f2c14e}
 .toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 24px);transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;opacity:0;transition:.25s;z-index:30;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%)}
 
@@ -129,7 +132,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v12</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v13</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -574,7 +577,7 @@ const BAD=/trailer|teaser|anniversary|announce|giveaway|sale\b|merch|livestream|
 let ytReady=false; const ytQueue=[];
 window.onYouTubeIframeAPIReady=()=>{dlog("onYouTubeIframeAPIReady ✓");ytReady=true;ytQueue.splice(0).forEach(f=>f())};
 (function(){const t=document.createElement("script");t.src="https://www.youtube.com/iframe_api";t.onload=()=>dlog("iframe_api script hentet");t.onerror=()=>dlog("FEJL: kunne ikke hente youtube.com/iframe_api (blokeret?)");document.head.appendChild(t);setTimeout(()=>dlog("Efter 5s: YT="+(!!window.YT)+" YT.Player="+(!!(window.YT&&YT.Player))+" ready="+ytReady),5000)})();
-function plainEmbed(c,why){ dlog("Skifter til simpel afspiller: "+(why||""));
+function plainEmbed(c,why){ c.classList.add("blocked"); dlog("Skifter til simpel afspiller: "+(why||""));
   const fr=c.querySelector(".frame"); if(fr.querySelector("iframe.plain")) return;
   const v=c.dataset.v, src=v?`https://www.youtube.com/embed/${v}?autoplay=1&mute=${soundOn&&touched?0:1}&playsinline=1&rel=0`
     :`https://www.youtube.com/embed/videoseries?list=UU${c.dataset.u.slice(2)}&autoplay=1&mute=${soundOn&&touched?0:1}&playsinline=1&rel=0`;
@@ -583,15 +586,16 @@ function plainEmbed(c,why){ dlog("Skifter til simpel afspiller: "+(why||""));
 }
 function setPh(c,t){const ph=c.querySelector(".ph"); if(ph) ph.textContent=t}
 function startPlayer(c){
-  if(!window.YT||!YT.Player){ setPh(c,"Venter på YouTube…"); clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(!c._player&&c._vis) plainEmbed(c,"(simpel afspiller)") },4000); return }
+  if(!window.YT||!YT.Player){ setPh(c,"Venter på YouTube…"); clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(!c._player&&c._vis) plainEmbed(c,"YouTube-script ikke hentet – simpel afspiller") },9000); return }
   if(c._player) { try{ soundOn?c._player.unMute():c._player.mute(); c._player.playVideo() }catch(e){} return }
   const fr=c.querySelector(".frame"); let m=fr.querySelector(".mount"); if(!m){m=document.createElement("div");m.className="mount";fr.appendChild(m)}
   const vars={autoplay:1,mute:soundOn?0:1,playsinline:1,rel:0,modestbranding:1,controls:0,fs:0,iv_load_policy:3,disablekb:1};
   const opts={host:"https://www.youtube-nocookie.com",width:"100%",height:"100%",playerVars:vars,events:{
-    onReady:e=>{ dlog("onReady ✓ – kalder playVideo (lyd "+(soundOn?"til":"fra")+")"); c._played=c._played||false; if(soundOn&&touched){ e.target.unMute(); e.target.setVolume(100) } else e.target.mute(); e.target.playVideo(); fr.querySelector(".ph")&&(fr.querySelector(".ph").style.display="none");
+    onReady:e=>{ c._ready=true; dlog("onReady ✓ – kalder playVideo (lyd "+(soundOn?"til":"fra")+")"); c._played=c._played||false;
+      setTimeout(()=>{ try{ const st=e.target.getPlayerState(); if(st!==1&&st!==3&&c._vis){ c.classList.add("blocked"); dlog("Autoplay blokeret – tryk på YouTubes ▶") } }catch(err){} },2600); if(soundOn&&touched){ e.target.unMute(); e.target.setVolume(100) } else e.target.mute(); e.target.playVideo(); fr.querySelector(".ph")&&(fr.querySelector(".ph").style.display="none");
       setTimeout(()=>{ try{ const st=e.target.getPlayerState(); if(st!==1&&st!==3&&c._vis){ dlog("Blev blokeret med lyd – starter uden lyd"); e.target.mute(); e.target.playVideo(); if(soundOn&&!touched) toast("Tryk én gang for lyd 🔊") } }catch(err){} },1500) },
     onStateChange:e=>{ dlog("Status: "+({"-1":"ikke startet","0":"slut","1":"spiller ✓","2":"pause","3":"buffer","5":"klar (cued)"}[e.data]||e.data));
-      if(e.data===1||e.data===3) c._played=true;
+      if(e.data===1||e.data===3){ c._played=true; c.classList.remove("blocked") }
       if(e.data===1){ try{ const t=(e.target.getVideoData().title||"");
         if(BAD.test(t)){ if(c.dataset.u) e.target.nextVideo(); else next(c) }
         else { const h=c.querySelector(".meta h2"); if(c.dataset.u&&h&&t) h.textContent=t } }catch(err){} }
@@ -602,9 +606,9 @@ function startPlayer(c){
   else { vars.listType="playlist"; vars.list="UU"+c.dataset.u.slice(2); vars.index=Math.floor(Math.random()*40) }
   setPh(c,"Starter video…"); dlog("Opretter afspiller for "+(c.dataset.v||("kanal "+c.dataset.u)));
   try{ c._player=new YT.Player(m,opts) }catch(err){ plainEmbed(c,"Fejl: "+err.message); return }
-  clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(c._vis && !c._played) plainEmbed(c,"(simpel afspiller)") },6000);
+  clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(c._vis && !c._ready) plainEmbed(c,"YouTube svarede ikke – simpel afspiller") },9000);
 }
-function stopPlayer(c){ c._played=false; if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
+function stopPlayer(c){ c._played=false; c._ready=false; c.classList.remove("blocked"); if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
 const ytio=new IntersectionObserver(es=>es.forEach(e=>{
   const c=e.target;
   if(e.isIntersecting&&e.intersectionRatio>0.6){ c._vis=true; if(ytReady) startPlayer(c); else { startPlayer(c); ytQueue.push(()=>{ if(c._vis&&!c._player&&!c.querySelector('iframe.plain')) startPlayer(c) }) } }
