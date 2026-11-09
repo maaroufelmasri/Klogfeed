@@ -154,7 +154,7 @@ body.fsmode #feed{overflow:hidden}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v20</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v21</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -623,6 +623,7 @@ function startPlayer(c){
     onStateChange:e=>{ dlog("Status: "+({"-1":"ikke startet","0":"slut","1":"spiller ✓","2":"pause","3":"buffer","5":"klar (cued)"}[e.data]||e.data));
       if(e.data===1||e.data===3){ c._played=true; c.classList.remove("blocked") }
       if(e.data===1 && soundOn && touched && !c._noSound && !c._triedSound){ c._triedSound=true; try{ e.target.unMute(); e.target.setVolume(100); dlog("Lyd slået til") }catch(err){} }
+      if(e.data===2) dlog("  ↳ pause-kilde: "+(c._userPaused?"dit tryk":c._triedSound?"efter lyd slået til (iPhone?)":"IKKE appen → iPhone/YouTube")+" | muted="+(e.target.isMuted&&e.target.isMuted())+" synlig="+c._vis);
       if(e.data===2 && c._triedSound && !c._userPaused && !c._noSound){ c._noSound=true; dlog("iPhone stoppede lyden – spiller videre uden lyd"); try{ e.target.mute(); e.target.playVideo() }catch(err){} toast("Tryk på videoen for lyd 🔊") }
       if(e.data===1){ try{ const t=(e.target.getVideoData().title||"");
         if(BAD.test(t)){ if(c.dataset.u) e.target.nextVideo(); else next(c) }
@@ -638,20 +639,20 @@ function startPlayer(c){
 }
 function exitFs(){ document.querySelectorAll('.card.fs').forEach(x=>{x.classList.remove('fs'); const bb=x.querySelector('[data-a=fs]'); if(bb){bb.querySelector('.fsl').textContent='Fuld'; bb.querySelector('.ic').textContent='⛶'}}); document.body.classList.remove('fsmode') }
 function stopPlayer(c){ if(c.classList.contains('fs')) exitFs(); c._played=false; c._ready=false; c._triedSound=false; c._noSound=false; c._userPaused=false; c.classList.remove("blocked"); if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
-function pauseCard(c){ try{ if(c._player&&c._player.pauseVideo) c._player.pauseVideo() }catch(e){} const v=c.querySelector&&c.querySelector("video"); if(v) v.pause() }
+function pauseCard(c,why){ try{ if(c._player&&c._player.pauseVideo){ if(c._player.getPlayerState&&c._player.getPlayerState()===1) dlog("APP satte pause ("+(why||"scroll")+")"); c._player.pauseVideo() } }catch(e){} const v=c.querySelector&&c.querySelector("video"); if(v) v.pause() }
 let _scrollT=null, _lastCur=null;
 document.getElementById("feed").addEventListener("scroll",()=>{
   const cur=curCard();
-  if(_lastCur&&_lastCur!==cur){ pauseCard(_lastCur) }
+  if(_lastCur&&_lastCur!==cur){ pauseCard(_lastCur,"swipe væk") }
   clearTimeout(_scrollT); _scrollT=setTimeout(()=>{ const c=curCard(); _lastCur=c;
-    document.querySelectorAll(".card.yt,.card.film").forEach(x=>{ if(x!==c) pauseCard(x) });
+    document.querySelectorAll(".card.yt,.card.film").forEach(x=>{ if(x!==c) pauseCard(x,"ikke aktuel") });
     if(c&&c.classList.contains("yt")){ if(c._player&&c._player.playVideo&&!c._userPaused){ try{ c._player.playVideo() }catch(e){} } else if(!c._player){ c._vis=true; startPlayer(c) } }
   },140);
 },{passive:true});
 const ytio=new IntersectionObserver(es=>es.forEach(e=>{
   const c=e.target;
   if(e.isIntersecting&&e.intersectionRatio>0.6){ c._vis=true; if(ytReady) startPlayer(c); else { startPlayer(c); ytQueue.push(()=>{ if(c._vis&&!c._player&&!c.querySelector('iframe.plain')) startPlayer(c) }) } }
-  else if(e.intersectionRatio<0.5 && e.isIntersecting){ c._vis=false; pauseCard(c) }
+  else if(e.intersectionRatio<0.5 && e.isIntersecting){ c._vis=false; pauseCard(c,"under halvt synlig "+e.intersectionRatio.toFixed(2)) }
   else if(!e.isIntersecting){ c._vis=false; clearTimeout(c._fb); stopPlayer(c); const pf=c.querySelector('iframe.plain'); if(pf){ c.querySelector('.frame').innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
 }),{threshold:[0,0.3,0.5,0.6,0.9]});
 let soundOn=LS.get("sound",true), touched=false;
@@ -681,7 +682,7 @@ $("#feed").addEventListener("click",e=>{
     if(st!==1){ c._userPaused=false; c._noSound=false; if(soundOn){p.unMute();p.setVolume(100)} p.playVideo(); c.classList.remove("paused"); return }
     if(soundOn&&p.isMuted()){ c._noSound=false; p.unMute(); p.setVolume(100); return }
   }catch(err){}
-  clearTimeout(c._tapT); c._tapT=setTimeout(()=>{ try{ c._userPaused=true; p.pauseVideo(); c.classList.add("paused") }catch(err){} },300);
+  clearTimeout(c._tapT); c._tapT=setTimeout(()=>{ try{ c._userPaused=true; dlog("APP satte pause (dit tryk)"); p.pauseVideo(); c.classList.add("paused") }catch(err){} },300);
 });
 function fmtT(t){t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+":"+String(t%60).padStart(2,"0")}
 function flashSeek(c,txt){ let f=c.querySelector(".seekflash"); if(!f){f=document.createElement("div");f.className="seekflash";c.appendChild(f)} f.textContent=txt; f.classList.remove("show"); void f.offsetWidth; f.classList.add("show") }
