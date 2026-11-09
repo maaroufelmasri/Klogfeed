@@ -104,13 +104,25 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 body.fsmode .top{display:none}
 body.fsmode #feed{overflow:hidden}
 .card.yt.fs{z-index:10}
-.card.yt.fs .meta,.card.yt.fs .vprog,.card.yt.fs .side>button:not([data-a=fs]){display:none}
+.card.yt.fs .meta,.card.yt.fs .side>button:not([data-a=fs]){display:none}
 .card.yt.fs .side{top:calc(var(--safe-t) + 10px);bottom:auto;right:10px}
 .card.yt.fs .frame:not(.vert){position:fixed;top:50%;left:50%;width:100vh;width:100dvh;height:100vw;aspect-ratio:auto;transform:translate(-50%,-50%) rotate(90deg);z-index:5}
 .card.yt.fs .frame.vert{position:fixed;inset:0;width:100%;height:100%;transform:none;aspect-ratio:auto;z-index:5;top:0;bottom:0;left:0;right:0;max-width:none}
 .card.yt.fs .tap{position:fixed;z-index:6}
 .card.yt.fs .side{position:fixed;z-index:7}
 @media (orientation:landscape){ .card.yt.fs .frame:not(.vert){transform:none;top:0;left:0;width:100%;height:100%} }
+.card.yt .vprog{position:absolute;left:0;right:0;bottom:var(--safe-b);height:30px;background:transparent;touch-action:none;z-index:5;cursor:pointer}
+.card.yt .vprog:before{content:"";position:absolute;left:0;right:0;bottom:6px;height:3px;background:rgba(255,255,255,.25)}
+.card.yt .vprog i{position:absolute;left:0;bottom:6px;height:3px;background:var(--acc);display:block}
+.card.yt .vprog i:after{content:"";position:absolute;right:-6px;top:-4.5px;width:12px;height:12px;border-radius:50%;background:#fff;opacity:0;transition:opacity .15s}
+.card.yt .vprog.drag:before,.card.yt .vprog.drag i{height:6px}
+.card.yt .vprog.drag i:after{opacity:1;top:-3px}
+.card.yt .vprog .stime{position:absolute;right:12px;bottom:14px;font-size:11px;font-weight:600;color:rgba(255,255,255,.7);text-shadow:0 1px 3px #000}
+.card.yt .vprog.drag .stime{font-size:15px;color:#fff;right:50%;transform:translateX(50%);bottom:22px}
+.card.yt.fs .vprog{display:block;position:fixed;z-index:7}
+.seekflash{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);z-index:8;background:rgba(0,0,0,.6);color:#fff;font-weight:700;padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none}
+.seekflash.show{animation:sf .7s ease}
+@keyframes sf{0%{opacity:0}15%{opacity:1}70%{opacity:1}100%{opacity:0}}
 .toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 24px);transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;opacity:0;transition:.25s;z-index:30;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%)}
 
@@ -142,7 +154,7 @@ body.fsmode #feed{overflow:hidden}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v19</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v20</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -493,7 +505,7 @@ function cardHTML(it){
       <div class="tap"><span class="pp">▶</span></div>
       <div class="meta"><span class="pill">${C.e} ${C.n}${it.short?" · Short":""}</span>
         <h2>${esc(it.t)}</h2><p>${esc(it.n)}${it.d?" · "+esc(it.d):""} · <a href="${link}" target="_blank" rel="noopener">YouTube ↗</a></p></div>
-      <div class="vprog"><i></i></div>
+      <div class="vprog"><i></i><span class="stime"></span></div>
       <div class="side">
         <button data-a="fs"><span class="ic">⛶</span><span class="fsl">Fuld</span></button>
         <button data-a="like"><span class="ic">👍</span>Mere</button>
@@ -657,12 +669,32 @@ new MutationObserver(()=>document.querySelectorAll(".card.yt:not([data-o])").for
 
 $("#feed").addEventListener("click",e=>{
   const t=e.target.closest(".card.yt .tap"); if(!t) return; const c=t.closest(".card"); const p=c._player;
-  const now=Date.now(); if(c._lastTap&&now-c._lastTap<350) return; c._lastTap=now;
-  if(p&&p.getPlayerState){ try{ const st=p.getPlayerState(); if(st===1 && !(soundOn&&p.isMuted())){ c._userPaused=true; p.pauseVideo(); c.classList.add("paused") } else { c._userPaused=false; c._noSound=false; if(soundOn){p.unMute();p.setVolume(100)} p.playVideo(); c.classList.remove("paused") } }catch(err){} }
-  else if(!c.querySelector("iframe.plain")) startPlayer(c);
+  if(!(p&&p.getPlayerState)){ if(!c.querySelector("iframe.plain")) startPlayer(c); return }
+  const now=Date.now(), x=e.clientX, w=window.innerWidth;
+  // dobbelttryk: spol 10 sek
+  if(c._lastTap && now-c._lastTap<300){ clearTimeout(c._tapT); c._lastTap=0;
+    const dir = x<w*0.4?-10 : x>w*0.6?10 : 0;
+    if(dir){ try{ const t=Math.max(0,p.getCurrentTime()+dir); p.seekTo(t,true); flashSeek(c,dir<0?"⏪ 10 sek":"10 sek ⏩") }catch(err){} }
+    return }
+  c._lastTap=now;
+  try{ const st=p.getPlayerState();
+    if(st!==1){ c._userPaused=false; c._noSound=false; if(soundOn){p.unMute();p.setVolume(100)} p.playVideo(); c.classList.remove("paused"); return }
+    if(soundOn&&p.isMuted()){ c._noSound=false; p.unMute(); p.setVolume(100); return }
+  }catch(err){}
+  clearTimeout(c._tapT); c._tapT=setTimeout(()=>{ try{ c._userPaused=true; p.pauseVideo(); c.classList.add("paused") }catch(err){} },300);
 });
-setInterval(()=>{ const c=curCard(); if(!c||!c._player||!c._player.getCurrentTime) return;
-  try{ const d=c._player.getDuration(), t=c._player.getCurrentTime(); const i=c.querySelector(".vprog i"); if(i&&d) i.style.width=(t/d*100)+"%";
+function fmtT(t){t=Math.max(0,Math.floor(t||0));return Math.floor(t/60)+":"+String(t%60).padStart(2,"0")}
+function flashSeek(c,txt){ let f=c.querySelector(".seekflash"); if(!f){f=document.createElement("div");f.className="seekflash";c.appendChild(f)} f.textContent=txt; f.classList.remove("show"); void f.offsetWidth; f.classList.add("show") }
+function scrubAt(z,clientX,commit){ const c=z.closest(".card"), p=c._player; if(!p||!p.getDuration) return;
+  const r=z.getBoundingClientRect(), f=Math.min(1,Math.max(0,(clientX-r.left)/r.width)), d=p.getDuration()||0;
+  const i=z.querySelector("i"); if(i) i.style.width=(f*100)+"%"; const lab=z.querySelector(".stime"); if(lab) lab.textContent=fmtT(f*d)+" / "+fmtT(d);
+  c._scrubbing=!commit; try{ p.seekTo(f*d, !!commit) }catch(err){} }
+const feedEl=document.getElementById("feed");
+feedEl.addEventListener("pointerdown",e=>{ const z=e.target.closest(".card.yt .vprog"); if(!z) return; e.preventDefault(); e.stopPropagation(); z._drag=true; z.classList.add("drag"); try{z.setPointerCapture(e.pointerId)}catch(err){} scrubAt(z,e.clientX,false) });
+feedEl.addEventListener("pointermove",e=>{ const z=e.target.closest(".card.yt .vprog"); if(z&&z._drag){ e.preventDefault(); scrubAt(z,e.clientX,false) } });
+["pointerup","pointercancel"].forEach(ev=>feedEl.addEventListener(ev,e=>{ const z=e.target.closest(".card.yt .vprog"); if(z&&z._drag){ z._drag=false; z.classList.remove("drag"); scrubAt(z,e.clientX,true); const c=z.closest(".card"); c._scrubbing=false; try{ c._player.playVideo() }catch(err){} } }));
+setInterval(()=>{ const c=curCard(); if(!c||!c._player||!c._player.getCurrentTime||c._scrubbing) return;
+  try{ const d=c._player.getDuration(), t=c._player.getCurrentTime(); const i=c.querySelector(".vprog i"); if(i&&d) i.style.width=(t/d*100)+"%"; const lab=c.querySelector(".vprog .stime"); if(lab&&d) lab.textContent=fmtT(t)+" / "+fmtT(d);
     if(c._player.getPlayerState()===1) c.classList.remove("paused") }catch(e){} },500);
 /* ================== Timer ================== */
 setInterval(()=>{
