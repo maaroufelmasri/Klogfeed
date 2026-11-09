@@ -132,7 +132,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v15</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v16</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -589,13 +589,15 @@ function startPlayer(c){
   if(!window.YT||!YT.Player){ setPh(c,"Venter på YouTube…"); clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(!c._player&&c._vis) plainEmbed(c,"YouTube-script ikke hentet – simpel afspiller") },9000); return }
   if(c._player) { try{ soundOn?c._player.unMute():c._player.mute(); c._player.playVideo() }catch(e){} return }
   const fr=c.querySelector(".frame"); let m=fr.querySelector(".mount"); if(!m){m=document.createElement("div");m.className="mount";fr.appendChild(m)}
-  const vars={autoplay:1,mute:soundOn?0:1,playsinline:1,rel:0,modestbranding:1,controls:0,fs:0,iv_load_policy:3,disablekb:1};
+  const vars={autoplay:1,mute:1,playsinline:1,rel:0,modestbranding:1,controls:0,fs:0,iv_load_policy:3,disablekb:1};
   const opts={host:"https://www.youtube-nocookie.com",width:"100%",height:"100%",playerVars:vars,events:{
     onReady:e=>{ c._ready=true; dlog("onReady ✓ – kalder playVideo (lyd "+(soundOn?"til":"fra")+")"); c._played=c._played||false;
-      setTimeout(()=>{ try{ const st=e.target.getPlayerState(); if(st!==1&&st!==3&&c._vis){ c.classList.add("blocked"); dlog("Autoplay blokeret – tryk på YouTubes ▶") } }catch(err){} },2600); if(soundOn&&touched){ e.target.unMute(); e.target.setVolume(100) } else e.target.mute(); e.target.playVideo(); fr.querySelector(".ph")&&(fr.querySelector(".ph").style.display="none");
-      setTimeout(()=>{ try{ const st=e.target.getPlayerState(); if(st!==1&&st!==3&&c._vis){ dlog("Blev blokeret med lyd – starter uden lyd"); e.target.mute(); e.target.playVideo(); if(soundOn&&!touched) toast("Tryk én gang for lyd 🔊") } }catch(err){} },1500) },
+      setTimeout(()=>{ try{ const st=e.target.getPlayerState(); if(st!==1&&st!==3&&c._vis){ c.classList.add("blocked"); dlog("Autoplay blokeret – tryk på YouTubes ▶") } }catch(err){} },2600); e.target.mute(); e.target.playVideo(); fr.querySelector(".ph")&&(fr.querySelector(".ph").style.display="none");
+      },
     onStateChange:e=>{ dlog("Status: "+({"-1":"ikke startet","0":"slut","1":"spiller ✓","2":"pause","3":"buffer","5":"klar (cued)"}[e.data]||e.data));
       if(e.data===1||e.data===3){ c._played=true; c.classList.remove("blocked") }
+      if(e.data===1 && soundOn && touched && !c._noSound && !c._triedSound){ c._triedSound=true; try{ e.target.unMute(); e.target.setVolume(100); dlog("Lyd slået til") }catch(err){} }
+      if(e.data===2 && c._triedSound && !c._userPaused && !c._noSound){ c._noSound=true; dlog("iPhone stoppede lyden – spiller videre uden lyd"); try{ e.target.mute(); e.target.playVideo() }catch(err){} toast("Tryk på videoen for lyd 🔊") }
       if(e.data===1){ try{ const t=(e.target.getVideoData().title||"");
         if(BAD.test(t)){ if(c.dataset.u) e.target.nextVideo(); else next(c) }
         else { const h=c.querySelector(".meta h2"); if(c.dataset.u&&h&&t) h.textContent=t } }catch(err){} }
@@ -608,7 +610,7 @@ function startPlayer(c){
   try{ c._player=new YT.Player(m,opts) }catch(err){ plainEmbed(c,"Fejl: "+err.message); return }
   clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(c._vis && !c._ready) plainEmbed(c,"YouTube svarede ikke – simpel afspiller") },9000);
 }
-function stopPlayer(c){ c._played=false; c._ready=false; c.classList.remove("blocked"); if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
+function stopPlayer(c){ c._played=false; c._ready=false; c._triedSound=false; c._noSound=false; c._userPaused=false; c.classList.remove("blocked"); if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
 const ytio=new IntersectionObserver(es=>es.forEach(e=>{
   const c=e.target;
   if(e.isIntersecting&&e.intersectionRatio>0.6){ c._vis=true; if(ytReady) startPlayer(c); else { startPlayer(c); ytQueue.push(()=>{ if(c._vis&&!c._player&&!c.querySelector('iframe.plain')) startPlayer(c) }) } }
@@ -630,7 +632,7 @@ new MutationObserver(()=>document.querySelectorAll(".card.yt:not([data-o])").for
 $("#feed").addEventListener("click",e=>{
   const t=e.target.closest(".card.yt .tap"); if(!t) return; const c=t.closest(".card"); const p=c._player;
   const now=Date.now(); if(c._lastTap&&now-c._lastTap<350) return; c._lastTap=now;
-  if(p&&p.getPlayerState){ try{ if(p.getPlayerState()===1){ p.pauseVideo(); c.classList.add("paused") } else { if(soundOn){p.unMute();p.setVolume(100)} p.playVideo(); c.classList.remove("paused") } }catch(err){} }
+  if(p&&p.getPlayerState){ try{ const st=p.getPlayerState(); if(st===1 && !(soundOn&&p.isMuted())){ c._userPaused=true; p.pauseVideo(); c.classList.add("paused") } else { c._userPaused=false; c._noSound=false; if(soundOn){p.unMute();p.setVolume(100)} p.playVideo(); c.classList.remove("paused") } }catch(err){} }
   else if(!c.querySelector("iframe.plain")) startPlayer(c);
 });
 setInterval(()=>{ const c=curCard(); if(!c||!c._player||!c._player.getCurrentTime) return;
