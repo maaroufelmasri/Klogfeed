@@ -123,6 +123,21 @@ body.fsmode #feed{overflow:hidden}
 .seekflash{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);z-index:8;background:rgba(0,0,0,.6);color:#fff;font-weight:700;padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none}
 .seekflash.show{animation:sf .7s ease}
 @keyframes sf{0%{opacity:0}15%{opacity:1}70%{opacity:1}100%{opacity:0}}
+#app{background:#000}
+#feed{position:relative;z-index:1}
+.card.yt{background:transparent!important}
+.card.yt .frame{background:transparent}
+.card.yt .frame .thumb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.card.yt.live .frame .thumb,.card.yt.live .frame .ph{visibility:hidden}
+#stage{position:fixed;z-index:0;left:0;right:0;top:50%;transform:translateY(-58%);width:100%;aspect-ratio:16/9;background:#000;opacity:0;transition:opacity .12s}
+#stage.vert{top:calc(var(--safe-t) + 58px);bottom:calc(var(--safe-b) + 8px);left:50%;right:auto;transform:translateX(-50%);width:auto;aspect-ratio:9/16;max-width:100%}
+#stage.on{opacity:1}
+#stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+body.needtap #feed{pointer-events:none}
+body.needtap .top{pointer-events:none}
+body.fsmode #stage:not(.vert){top:50%;left:50%;right:auto;width:100vh;width:100dvh;height:100vw;aspect-ratio:auto;transform:translate(-50%,-50%) rotate(90deg)}
+body.fsmode #stage.vert{inset:0;top:0;left:0;width:100%;height:100%;transform:none;aspect-ratio:auto;max-width:none}
+@media (orientation:landscape){ body.fsmode #stage:not(.vert){transform:none;top:0;left:0;width:100%;height:100%} }
 .toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 24px);transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;opacity:0;transition:.25s;z-index:30;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%)}
 
@@ -154,7 +169,7 @@ body.fsmode #feed{overflow:hidden}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v22</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v23</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -501,7 +516,7 @@ function cardHTML(it){
       :`https://www.youtube-nocookie.com/embed/videoseries?list=UU${it.u.slice(2)}&index=${1+Math.floor(Math.random()*40)}&autoplay=1&mute=1&playsinline=1&rel=0`;
     const link=it.v?`https://www.youtube.com/watch?v=${it.v}`:`https://www.youtube.com/channel/${it.u}/videos`;
     return `<section class="card yt" data-k="${esc(id(it))}" data-c="${it.c}" data-src="${esc(src)}" data-v="${it.v||""}" data-u="${it.u||""}" data-q="${esc(it.q||"")}" data-ch="${it.ch||""}">
-      <div class="frame${it.short?" vert":""}"><div class="ph">▶ Indlæser video…</div><div class="mount"></div></div>
+      <div class="frame${it.short?" vert":""}">${it.v?`<img class="thumb" src="https://i.ytimg.com/vi/${it.v}/hqdefault.jpg" alt="" loading="lazy">`:""}<div class="ph">${it.v?"":"▶ Indlæser video…"}</div></div>
       <div class="tap"><span class="pp">▶</span></div>
       <div class="meta"><span class="pill">${C.e} ${C.n}${it.short?" · Short":""}</span>
         <h2>${esc(it.t)}</h2><p>${esc(it.n)}${it.d?" · "+esc(it.d):""} · <a href="${link}" target="_blank" rel="noopener">YouTube ↗</a></p></div>
@@ -603,60 +618,69 @@ const BAD=/trailer|teaser|anniversary|announce|giveaway|sale\b|merch|livestream|
 let ytReady=false; const ytQueue=[];
 window.onYouTubeIframeAPIReady=()=>{dlog("onYouTubeIframeAPIReady ✓");ytReady=true;ytQueue.splice(0).forEach(f=>f())};
 (function(){const t=document.createElement("script");t.src="https://www.youtube.com/iframe_api";t.onload=()=>dlog("iframe_api script hentet");t.onerror=()=>dlog("FEJL: kunne ikke hente youtube.com/iframe_api (blokeret?)");document.head.appendChild(t);setTimeout(()=>dlog("Efter 5s: YT="+(!!window.YT)+" YT.Player="+(!!(window.YT&&YT.Player))+" ready="+ytReady),5000)})();
-function plainEmbed(c,why){ c.classList.add("blocked"); dlog("Skifter til simpel afspiller: "+(why||""));
-  const fr=c.querySelector(".frame"); if(fr.querySelector("iframe.plain")) return;
-  const v=c.dataset.v, src=v?`https://www.youtube.com/embed/${v}?autoplay=1&mute=${soundOn&&touched?0:1}&playsinline=1&rel=0`
-    :`https://www.youtube.com/embed/videoseries?list=UU${c.dataset.u.slice(2)}&autoplay=1&mute=${soundOn&&touched?0:1}&playsinline=1&rel=0`;
-  try{ if(c._player){c._player.destroy();c._player=null} }catch(e){}
-  fr.innerHTML=`<div class="ph">${why||""}</div><iframe class="plain" src="${src}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
-}
-function setPh(c,t){const ph=c.querySelector(".ph"); if(ph) ph.textContent=t}
-function startPlayer(c){
-  if(!window.YT||!YT.Player){ setPh(c,"Venter på YouTube…"); clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(!c._player&&c._vis) plainEmbed(c,"YouTube-script ikke hentet – simpel afspiller") },9000); return }
-  if(c._player) { try{ const st=c._player.getPlayerState?c._player.getPlayerState():-1; if(st!==1&&st!==3&&!c._userPaused){ if(!(soundOn&&touched&&!c._noSound)) c._player.mute(); c._player.playVideo() } }catch(e){} return }
-  const fr=c.querySelector(".frame"); let m=fr.querySelector(".mount"); if(!m){m=document.createElement("div");m.className="mount";fr.appendChild(m)}
-  const vars={autoplay:1,mute:1,playsinline:1,rel:0,modestbranding:1,controls:0,fs:0,iv_load_policy:3,disablekb:1};
-  const opts={host:"https://www.youtube-nocookie.com",width:"100%",height:"100%",playerVars:vars,events:{
-    onReady:e=>{ c._ready=true; dlog("onReady ✓ – kalder playVideo (lyd "+(soundOn?"til":"fra")+")"); c._played=c._played||false;
-      setTimeout(()=>{ try{ const st=e.target.getPlayerState(); if(st!==1&&st!==3&&c._vis){ c.classList.add("blocked"); dlog("Autoplay blokeret – tryk på YouTubes ▶") } }catch(err){} },2600); e.target.mute(); e.target.playVideo(); fr.querySelector(".ph")&&(fr.querySelector(".ph").style.display="none");
-      },
-    onStateChange:e=>{ dlog("Status: "+({"-1":"ikke startet","0":"slut","1":"spiller ✓","2":"pause","3":"buffer","5":"klar (cued)"}[e.data]||e.data));
-      if(e.data===1||e.data===3){ c._played=true; c.classList.remove("blocked") }
-      if(e.data===1 && soundOn && touched && !c._noSound && !c._triedSound){ c._triedSound=true; try{ e.target.unMute(); e.target.setVolume(100); dlog("Lyd slået til") }catch(err){} }
-      if(e.data===2) dlog("  ↳ pause-kilde: "+(c._userPaused?"dit tryk":c._triedSound?"efter lyd slået til (iPhone?)":"IKKE appen → iPhone/YouTube")+" | muted="+(e.target.isMuted&&e.target.isMuted())+" synlig="+c._vis);
-      if(e.data===2 && c._triedSound && !c._userPaused && !c._noSound){ c._noSound=true; dlog("iPhone stoppede lyden – spiller videre uden lyd"); try{ e.target.mute(); e.target.playVideo() }catch(err){} toast("Tryk på videoen for lyd 🔊") }
-      if(e.data===1){ try{ const t=(e.target.getVideoData().title||"");
-        if(BAD.test(t)){ if(c.dataset.u) e.target.nextVideo(); else next(c) }
-        else { const h=c.querySelector(".meta h2"); if(c.dataset.u&&h&&t) h.textContent=t } }catch(err){} }
-      if(e.data===0){ if(c.dataset.q) learn(c,"watch",1.2); next(c) } },
-    onError:(e)=>{ dlog("YouTube-fejl kode "+e.data+({2:" (ugyldigt id)",5:" (HTML5-fejl)",100:" (findes ikke/privat)",101:" (må ikke indlejres)",150:" (må ikke indlejres)",153:" (mangler referrer/origin)"}[e.data]||"")); const ph=fr.querySelector(".ph"); if(ph){ph.style.display="";ph.textContent="Ikke tilgængelig – springer videre…"}
-      if(c.dataset.ch) chAff[c.dataset.ch]=(chAff[c.dataset.ch]||0)-1;
-      setTimeout(()=>{ if(!c._vis) return; if(c.dataset.u&&e.target.nextVideo){ try{ e.target.nextVideo(); return }catch(err){} } next(c) },1200); }
-  }};
-  if(c.dataset.v) opts.videoId=c.dataset.v;
-  else { vars.listType="playlist"; vars.list="UU"+c.dataset.u.slice(2); vars.index=Math.floor(Math.random()*40) }
-  setPh(c,"Starter video…"); dlog("Opretter afspiller for "+(c.dataset.v||("kanal "+c.dataset.u)));
-  try{ c._player=new YT.Player(m,opts) }catch(err){ plainEmbed(c,"Fejl: "+err.message); return }
-  clearTimeout(c._fb); c._fb=setTimeout(()=>{ if(c._vis && !c._ready) plainEmbed(c,"YouTube svarede ikke – simpel afspiller") },9000);
-}
+/* ===== Én fast afspiller (som TikTok): skifter video i stedet for at bygge nye ===== */
+let SP=null, SPready=false, PC=null, spNoSound=false, spPending=null;
+const stage=document.createElement("div"); stage.id="stage"; stage.innerHTML='<div id="spmount"></div>'; document.getElementById("app").prepend(stage);
+const SN={"-1":"ikke startet","0":"slut","1":"spiller ✓","2":"pause","3":"buffer","5":"klar (cued)"};
 function exitFs(){ document.querySelectorAll('.card.fs').forEach(x=>{x.classList.remove('fs'); const bb=x.querySelector('[data-a=fs]'); if(bb){bb.querySelector('.fsl').textContent='Fuld'; bb.querySelector('.ic').textContent='⛶'}}); document.body.classList.remove('fsmode') }
-function stopPlayer(c){ if(c.classList.contains('fs')) exitFs(); c._played=false; c._ready=false; c._triedSound=false; c._noSound=false; c._userPaused=false; c.classList.remove("blocked"); if(c._player){ try{ const p=c._player, w=p.getCurrentTime?p.getCurrentTime():0, d=p.getDuration?p.getDuration():0; if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
-function pauseCard(c,why){ try{ if(c._player&&c._player.pauseVideo){ if(c._player.getPlayerState&&c._player.getPlayerState()===1) dlog("APP satte pause ("+(why||"scroll")+")"); c._player.pauseVideo() } }catch(e){} const v=c.querySelector&&c.querySelector("video"); if(v) v.pause() }
-let _scrollT=null, _lastCur=null;
+function startPlayer(c){ activate(c) }
+function createSP(c){
+  const vars={autoplay:1,mute:1,playsinline:1,rel:0,modestbranding:1,controls:0,fs:0,iv_load_policy:3,disablekb:1};
+  const o={host:"https://www.youtube-nocookie.com",width:"100%",height:"100%",playerVars:vars,events:{
+    onReady:e=>{ SPready=true; dlog("Afspiller klar ✓"); try{ e.target.mute(); e.target.playVideo() }catch(err){} if(spPending&&spPending!==c){ const x=spPending; spPending=null; loadInto(x) } },
+    onStateChange:onSPState, onError:onSPError }};
+  if(c.dataset.v) o.videoId=c.dataset.v; else { vars.listType="playlist"; vars.list="UU"+c.dataset.u.slice(2); vars.index=Math.floor(Math.random()*40) }
+  dlog("Opretter DEN ENE afspiller med "+(c.dataset.v||("kanal "+c.dataset.u)));
+  c._player=null; SP=new YT.Player("spmount",o); c._player=SP; checkBlocked(c);
+}
+function loadInto(c){
+  c._player=SP; dlog("Skifter video → "+(c.dataset.v||("kanal "+c.dataset.u)));
+  try{ if(!(soundOn&&touched&&!spNoSound)) SP.mute();
+    if(c.dataset.v) SP.loadVideoById(c.dataset.v);
+    else SP.loadPlaylist({list:"UU"+c.dataset.u.slice(2),listType:"playlist",index:Math.floor(Math.random()*40)}) }catch(e){ dlog("Load-fejl: "+e.message) }
+  checkBlocked(c);
+}
+function checkBlocked(c){ clearTimeout(c._bt); c._bt=setTimeout(()=>{ if(PC!==c) return; let st=-1; try{ st=SP.getPlayerState() }catch(e){}
+  if(st!==1&&st!==3){ c.classList.add("blocked"); document.body.classList.add("needtap"); stage.classList.add("on"); dlog("Autoplay blokeret – tryk på ▶ i videoen") } },3000) }
+function leaveCard(c){
+  if(document.body.classList.contains("fsmode")) exitFs();
+  c.classList.remove("live","blocked","paused"); document.body.classList.remove("needtap"); clearTimeout(c._bt);
+  if(c._player){ try{ const w=SP.getCurrentTime(), d=SP.getDuration(); if(c.dataset.q){ if(w<6) learn(c,"skip"); else learn(c,"watch",Math.min(1,d?w/d:0.5)) } }catch(e){} try{ SP.pauseVideo() }catch(e){} c._player=null }
+  const v=c.querySelector&&c.querySelector("video"); if(v) v.pause(); c._vis=false; c._userPaused=false; c._triedSound=false;
+}
+function activate(c){
+  if(!c) return;
+  if(PC&&PC!==c) leaveCard(PC);
+  if(!c.classList.contains("yt")){ stage.classList.remove("on"); try{ SP&&SP.pauseVideo() }catch(e){} PC=c; return }
+  stage.classList.toggle("vert", c.querySelector(".frame").classList.contains("vert"));
+  if(PC===c && c._player){ if(!c._userPaused){ try{ SP.playVideo() }catch(e){} } c.classList.add("live"); stage.classList.add("on"); return }
+  PC=c; c._vis=true; c._played=false;
+  if(!window.YT||!YT.Player){ ytQueue.push(()=>activate(curCard())); return }
+  if(!SP){ createSP(c); return }
+  if(!SPready){ spPending=c; c._player=SP; return }
+  loadInto(c);
+}
+function onSPState(e){ const c=PC; dlog("Status: "+(SN[e.data]||e.data)); if(!c||!c.classList.contains("yt")) return;
+  if(e.data===1||e.data===3){ c._played=true; c.classList.remove("blocked"); document.body.classList.remove("needtap"); c.classList.add("live"); stage.classList.add("on") }
+  if(e.data===1 && soundOn && touched && !spNoSound){ try{ if(SP.isMuted()){ c._triedSound=true; SP.unMute(); SP.setVolume(100); dlog("Lyd slået til") } }catch(err){} }
+  if(e.data===2){ dlog("  ↳ pause-kilde: "+(c._userPaused?"dit tryk":c._triedSound?"efter lyd slået til (iPhone?)":"ikke appen"));
+    if(c._triedSound && !c._userPaused && !spNoSound){ spNoSound=true; dlog("iPhone stoppede lyden – spiller videre uden lyd"); try{ SP.mute(); SP.playVideo() }catch(err){} toast("Tryk på videoen for lyd 🔊") } }
+  if(e.data===1){ try{ const t=(SP.getVideoData().title||"");
+    if(BAD.test(t)){ dlog("Springer reklame/trailer over: "+t.slice(0,40)); if(c.dataset.u) SP.nextVideo(); else next(c) }
+    else { const h=c.querySelector(".meta h2"); if(c.dataset.u&&h&&t) h.textContent=t } }catch(err){} }
+  if(e.data===0){ if(c.dataset.q) learn(c,"watch",1.2); next(c) }
+}
+function onSPError(e){ const c=PC; dlog("YouTube-fejl kode "+e.data+({2:" (ugyldigt id)",5:" (HTML5-fejl)",100:" (findes ikke/privat)",101:" (må ikke indlejres)",150:" (må ikke indlejres/blokeret)"}[e.data]||"")); if(!c) return;
+  const ph=c.querySelector(".ph"); if(ph){ ph.style.display=""; ph.textContent="Ikke tilgængelig – springer videre…" }
+  if(c.dataset.ch) chAff[c.dataset.ch]=(chAff[c.dataset.ch]||0)-1;
+  setTimeout(()=>{ if(PC!==c) return; if(c.dataset.u){ try{ SP.nextVideo(); return }catch(err){} } next(c) },1200);
+}
+let _scrollT=null;
 document.getElementById("feed").addEventListener("scroll",()=>{
-  const cur=curCard();
-  if(_lastCur&&_lastCur!==cur){ pauseCard(_lastCur,"swipe væk") }
-  clearTimeout(_scrollT); _scrollT=setTimeout(()=>{ const c=curCard(); _lastCur=c;
-    document.querySelectorAll(".card.yt,.card.film").forEach(x=>{ if(x!==c) pauseCard(x,"ikke aktuel") });
-    if(c&&c.classList.contains("yt")){ if(c._player&&c._player.playVideo&&!c._userPaused){ try{ c._player.playVideo() }catch(e){} } else if(!c._player){ c._vis=true; startPlayer(c) } }
-  },140);
+  const f=document.getElementById("feed");
+  if(PC && Math.abs(f.scrollTop-PC.offsetTop)>24){ stage.classList.remove("on"); PC.classList.remove("live"); if(curCard()!==PC){ try{ SP&&SP.pauseVideo() }catch(e){} } }
+  clearTimeout(_scrollT); _scrollT=setTimeout(()=>activate(curCard()),150);
 },{passive:true});
-const ytio=new IntersectionObserver(es=>es.forEach(e=>{
-  const c=e.target;
-  if(e.isIntersecting&&e.intersectionRatio>0.6){ c._vis=true; if(ytReady) startPlayer(c); else { startPlayer(c); ytQueue.push(()=>{ if(c._vis&&!c._player&&!c.querySelector('iframe.plain')) startPlayer(c) }) } }
-  else if(e.intersectionRatio<0.5 && e.isIntersecting){ c._vis=false; pauseCard(c,"under halvt synlig "+e.intersectionRatio.toFixed(2)) }
-  else if(!e.isIntersecting){ c._vis=false; clearTimeout(c._fb); stopPlayer(c); const pf=c.querySelector('iframe.plain'); if(pf){ c.querySelector('.frame').innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
-}),{threshold:[0,0.3,0.5,0.6,0.9]});
 let soundOn=LS.get("sound",true), touched=false;
 function curCard(){ const f=document.getElementById("feed"); return f.children[Math.round(f.scrollTop/f.clientHeight)] }
 function unmuteCurrent(){ const c=curCard(); if(!c) return;
@@ -667,8 +691,6 @@ let _ut=null; document.getElementById("feed").addEventListener("touchend",()=>{ 
 function setSound(on){ soundOn=on; LS.set("sound",on); if(on) unmuteCurrent(); const b=document.getElementById("soundBtn"); if(b) b.textContent=on?"🔊":"🔇";
   document.querySelectorAll(".card.yt").forEach(c=>{ if(c._player){ try{ on?c._player.unMute():c._player.mute() }catch(e){} } });
   document.querySelectorAll(".card.film video").forEach(v=>v.muted=!on); }
-new MutationObserver(()=>document.querySelectorAll(".card.yt:not([data-o])").forEach(c=>{c.dataset.o=1;ytio.observe(c)}))
-  .observe(document.getElementById("feed"),{childList:true});
 
 $("#feed").addEventListener("click",e=>{
   const t=e.target.closest(".card.yt .tap"); if(!t) return; const c=t.closest(".card"); const p=c._player;
@@ -681,8 +703,8 @@ $("#feed").addEventListener("click",e=>{
     return }
   c._lastTap=now;
   try{ const st=p.getPlayerState();
-    if(st!==1){ c._userPaused=false; c._noSound=false; if(soundOn){p.unMute();p.setVolume(100)} p.playVideo(); c.classList.remove("paused"); return }
-    if(soundOn&&p.isMuted()){ c._noSound=false; p.unMute(); p.setVolume(100); return }
+    if(st!==1){ c._userPaused=false; c._noSound=false; spNoSound=false; if(soundOn){p.unMute();p.setVolume(100)} p.playVideo(); c.classList.remove("paused"); return }
+    if(soundOn&&p.isMuted()){ c._noSound=false; spNoSound=false; p.unMute(); p.setVolume(100); return }
   }catch(err){}
   clearTimeout(c._tapT); c._tapT=setTimeout(()=>{ try{ c._userPaused=true; dlog("APP satte pause (dit tryk)"); p.pauseVideo(); c.classList.add("paused") }catch(err){} },300);
 });
@@ -908,6 +930,7 @@ if(!profile||profile.v!==3){applyProfile(JSON.parse(JSON.stringify(CHAT_PROFILE)
 $("#onb").classList.add("hidden");$("#app").classList.remove("hidden");
 FILMS.forEach(f=>{if(!LS.get("film_"+id(f),false)){$("#feed").insertAdjacentHTML("beforeend",cardHTML(f));seen.add(id(f));recentCats.push(f.c);LS.set("film_"+id(f),true)}});
 fill(6);
+setTimeout(()=>activate(curCard()),300);
 if(apiKey){ ensureBuffer().then(()=>{ const f=$("#feed"); const cur=Math.round(f.scrollTop/f.clientHeight); [...f.children].slice(cur+1).forEach(x=>x.remove()); fill(5) }) }
 if(window._keyJustSet) setTimeout(()=>toast("YouTube-nøgle gemt ✅ Finder videoer til dig…"),300);
 if(typeof fromChat!=="undefined")setTimeout(()=>toast("Profil sat op ud fra dine svar ✨"),400);
