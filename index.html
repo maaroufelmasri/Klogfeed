@@ -154,7 +154,7 @@ body.fsmode #feed{overflow:hidden}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v21</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v22</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -629,7 +629,9 @@ function startPlayer(c){
         if(BAD.test(t)){ if(c.dataset.u) e.target.nextVideo(); else next(c) }
         else { const h=c.querySelector(".meta h2"); if(c.dataset.u&&h&&t) h.textContent=t } }catch(err){} }
       if(e.data===0){ if(c.dataset.q) learn(c,"watch",1.2); next(c) } },
-    onError:(e)=>{ dlog("YouTube-fejl kode "+e.data+({2:" (ugyldigt id)",5:" (HTML5-fejl)",100:" (findes ikke/privat)",101:" (må ikke indlejres)",150:" (må ikke indlejres)",153:" (mangler referrer/origin)"}[e.data]||"")); fr.querySelector(".ph").textContent="Videoen kunne ikke afspilles – swipe videre"; }
+    onError:(e)=>{ dlog("YouTube-fejl kode "+e.data+({2:" (ugyldigt id)",5:" (HTML5-fejl)",100:" (findes ikke/privat)",101:" (må ikke indlejres)",150:" (må ikke indlejres)",153:" (mangler referrer/origin)"}[e.data]||"")); const ph=fr.querySelector(".ph"); if(ph){ph.style.display="";ph.textContent="Ikke tilgængelig – springer videre…"}
+      if(c.dataset.ch) chAff[c.dataset.ch]=(chAff[c.dataset.ch]||0)-1;
+      setTimeout(()=>{ if(!c._vis) return; if(c.dataset.u&&e.target.nextVideo){ try{ e.target.nextVideo(); return }catch(err){} } next(c) },1200); }
   }};
   if(c.dataset.v) opts.videoId=c.dataset.v;
   else { vars.listType="playlist"; vars.list="UU"+c.dataset.u.slice(2); vars.index=Math.floor(Math.random()*40) }
@@ -817,25 +819,53 @@ function langOK(x,lenient){
   let ok=0,bad=0; ws.forEach(w=>{ if(W_OK.has(w)) ok++; if(W_BAD.has(w)) bad++ });
   return bad<=ok+(lenient?1:0);
 }
-async function fetchQuery(c,q){
-  const dur=durParam(), ck="v2|"+q+"|"+dur;
-  let items=null;
-  if(qcache[ck] && Date.now()-qcache[ck].t<3*864e5) items=qcache[ck].items;
-  else {
-    if(quota.n>=80) return;
-    quota.n++; LS.set("quota",quota);
-    const isDa=q.startsWith("da:"); const s=await ytFetch("search",{part:"snippet",type:"video",videoEmbeddable:"true",maxResults:"25",q:isDa?q.slice(3):q,videoDuration:isDa&&dur==="short"?"any":dur,safeSearch:"moderate",relevanceLanguage:isDa?"da":"en",regionCode:"DK"});
-    const ids=s.items.map(x=>x.id.videoId).filter(Boolean); if(!ids.length) return;
-    const v=await ytFetch("videos",{part:"snippet,contentDetails,statistics",id:ids.join(",")});
-    items=v.items.map(x=>({v:x.id,t:x.snippet.title,al:x.snippet.defaultAudioLanguage||"",dl:x.snippet.defaultLanguage||"",n:x.snippet.channelTitle,ch:x.snippet.channelId,views:+(x.statistics.viewCount||0),likes:+(x.statistics.likeCount||0),sec:isoDur(x.contentDetails.duration)}))
-      .filter(x=>langOK(x,isDa) && x.views>=(x.sec<=70?(x.al.startsWith("da")?20000:150000):(x.al.startsWith("da")?5000:40000)) && !BAD.test(x.t) && x.sec>=15 && x.sec<=(lenPref==="long"?5400:1500));
-    qcache[ck]={t:Date.now(),items};
-    const ks=Object.keys(qcache); if(ks.length>120){ks.sort((a,b)=>qcache[a].t-qcache[b].t).slice(0,ks.length-120).forEach(k=>delete qcache[k])}
-    LS.set("qcache",qcache);
-  }
+function regionOK(cd){ const r=cd&&cd.regionRestriction; if(!r) return true; if(r.blocked&&r.blocked.includes("DK")) return false; if(r.allowed&&!r.allowed.includes("DK")) return false; return true }
+function mapVideos(v,lenient){
+  return v.items.filter(x=>x.status?x.status.embeddable!==false:true).map(x=>({v:x.id,t:x.snippet.title,al:x.snippet.defaultAudioLanguage||"",dl:x.snippet.defaultLanguage||"",n:x.snippet.channelTitle,ch:x.snippet.channelId,views:+(x.statistics.viewCount||0),likes:+(x.statistics.likeCount||0),sec:isoDur(x.contentDetails.duration),reg:regionOK(x.contentDetails)}))
+    .filter(x=>x.reg && langOK(x,lenient) && x.views>=(x.sec<=70?(x.al.startsWith("da")?20000:150000):(x.al.startsWith("da")?5000:40000)) && !BAD.test(x.t) && x.sec>=15 && x.sec<=(lenPref==="long"?5400:1500));
+}
+let knownCh=LS.get("knownch",{});   // kategori -> {kanalId: score}
+function addKnown(c,items){ const k=knownCh[c]=knownCh[c]||{}; items.forEach(x=>{ k[x.ch]=(k[x.ch]||0)+1 }); const ent=Object.entries(k).sort((a,b)=>b[1]-a[1]).slice(0,40); knownCh[c]=Object.fromEntries(ent); LS.set("knownch",knownCh) }
+function quotaBlocked(){ return LS.get("qblock","")===today2 || quota.n>=40 }
+function pushCand(c,items,q){
   const fresh=items.filter(x=>!vseen.has(x.v)&&(chAff[x.ch]||0)>-3&&!(cand[c]||[]).some(y=>y.v===x.v));
   fresh.forEach(x=>{x.c=c;x.q=q;x.y="yt";x.short=x.sec<=70;x.d=fmtN(x.views)+" visninger · "+fmtD(x.sec)});
-  (cand[c]=cand[c]||[]).push(...fresh);
+  (cand[c]=cand[c]||[]).push(...fresh); return fresh.length;
+}
+async function fetchQuery(c,q){
+  const dur=durParam(), ck="v3|"+q+"|"+dur;
+  let items=null;
+  if(qcache[ck] && Date.now()-qcache[ck].t<7*864e5) items=qcache[ck].items;
+  else {
+    if(quotaBlocked()) return fetchChannel(c);
+    quota.n++; LS.set("quota",quota);
+    const isDa=q.startsWith("da:");
+    let s; try{ s=await ytFetch("search",{part:"snippet",type:"video",videoEmbeddable:"true",maxResults:"50",q:isDa?q.slice(3):q,videoDuration:isDa&&dur==="short"?"any":dur,safeSearch:"moderate",relevanceLanguage:isDa?"da":"en",regionCode:"DK"}) }
+    catch(e){ if(/quota/i.test(e.message)){ LS.set("qblock",today2); dlog("Søge-kvote brugt op i dag → henter fra kendte kanaler"); return fetchChannel(c) } throw e }
+    const ids=s.items.map(x=>x.id.videoId).filter(Boolean); if(!ids.length) return;
+    const v=await ytFetch("videos",{part:"snippet,contentDetails,statistics,status",id:ids.join(",")});
+    items=mapVideos(v,isDa); addKnown(c,items);
+    qcache[ck]={t:Date.now(),items};
+    const ks=Object.keys(qcache); if(ks.length>150){ks.sort((a,b)=>qcache[a].t-qcache[b].t).slice(0,ks.length-150).forEach(k=>delete qcache[k])}
+    LS.set("qcache",qcache);
+  }
+  pushCand(c,items,q);
+}
+async function fetchChannel(c){
+  // billig vej: kanalens seneste uploads (≈2 enheder i stedet for 100)
+  const pool=Object.entries(knownCh[c]||{}).map(([id,sc])=>({id,w:sc*Math.max(0.2,1+(chAff[id]||0)*0.3)})).filter(x=>(chAff[x.id]||0)>-3);
+  YT_SOURCES.filter(x=>x.c===c&&x.u).forEach(x=>pool.push({id:x.u,w:2}));
+  if(!pool.length) return 0;
+  const ch=wpick(pool,x=>x.w).id, ck="ch|"+ch;
+  let items=null;
+  if(qcache[ck] && Date.now()-qcache[ck].t<2*864e5) items=qcache[ck].items;
+  else {
+    const pl=await ytFetch("playlistItems",{part:"contentDetails",playlistId:"UU"+ch.slice(2),maxResults:"50"});
+    const ids=pl.items.map(x=>x.contentDetails.videoId).filter(Boolean); if(!ids.length) return 0;
+    const v=await ytFetch("videos",{part:"snippet,contentDetails,statistics,status",id:ids.join(",")});
+    items=mapVideos(v,true); qcache[ck]={t:Date.now(),items}; LS.set("qcache",qcache);
+  }
+  return pushCand(c,items.sort(()=>Math.random()-.5).slice(0,12),"kanal:"+ch);
 }
 let bufPromise=null;
 function ensureBuffer(){ if(!apiKey) return Promise.resolve(); if(bufPromise) return bufPromise; bufPromise=_ensure().finally(()=>{bufPromise=null}); return bufPromise }
@@ -846,9 +876,10 @@ async function _ensure(){
     for(let guard=0;guard<3;guard++){
       const cats=smartCats(); const low=cats.filter(c=>(cand[c]||[]).length<3); if(!low.length) break;
       const c=wpick(low,k=>weights[k]||0.1); const qs=queriesFor(c); if(!qs.length) break;
+      const known=Object.keys(knownCh[c]||{}).length; if(known>=4 && (quotaBlocked()||Math.random()<0.6)){ const n=await fetchChannel(c); if(n) continue }
       const q=wpick(qs,x=>qw[x]??1); await fetchQuery(c,q);
     }
-  }catch(e){ toast("YouTube: "+String(e.message).slice(0,60)); if(/key|API key|referer|forbidden/i.test(e.message)) {} }
+  }catch(e){ if(!/quota/i.test(e.message)) toast("YouTube: "+String(e.message).slice(0,60)); if(/key|API key|referer|forbidden/i.test(e.message)) {} }
   fetching=false;
 }
 function smartNext(){
