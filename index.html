@@ -172,7 +172,7 @@ body.fsmode #stage:not(.wide){inset:0;top:0;left:0;width:100%;height:100%;transf
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v28</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v29</small></div>
     <div class="tbtns">
       <span class="timer" id="timer" style="display:none"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -724,6 +724,12 @@ feedEl.addEventListener("pointermove",e=>{ const z=e.target.closest(".card.yt .v
 setInterval(()=>{ const c=curCard(); if(!c||!c._player||!c._player.getCurrentTime||c._scrubbing) return;
   try{ const d=c._player.getDuration(), t=c._player.getCurrentTime(); const i=c.querySelector(".vprog i"); if(i&&d) i.style.width=(t/d*100)+"%"; const lab=c.querySelector(".vprog .stime"); if(lab&&d) lab.textContent=fmtT(t)+" / "+fmtT(d);
     if(c._player.getPlayerState()===1) c.classList.remove("paused") }catch(e){} },500);
+/* Luk fuldskærm med et swipe */
+let _fsT=null;
+document.addEventListener("touchstart",e=>{ if(!document.body.classList.contains("fsmode")) return; const t=e.touches[0]; _fsT={x:t.clientX,y:t.clientY,time:Date.now()} },{passive:true});
+document.addEventListener("touchend",e=>{ if(!_fsT||!document.body.classList.contains("fsmode")) return; const t=e.changedTouches[0];
+  const dx=t.clientX-_fsT.x, dy=t.clientY-_fsT.y; const dist=Math.hypot(dx,dy); _fsT=null;
+  if(dist>70 && !e.target.closest(".vprog")){ exitFs(); try{ if(screen.orientation&&screen.orientation.unlock) screen.orientation.unlock() }catch(err){} } },{passive:true});
 /* ================== Timer ================== */
 setInterval(()=>{
   if(document.hidden||$("#app").classList.contains("hidden"))return;
