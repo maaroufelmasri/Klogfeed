@@ -168,7 +168,7 @@ body.fsmode #stage.vert{inset:0;top:0;left:0;width:100%;height:100%;transform:no
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v24</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v25</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -822,7 +822,7 @@ function fmtD(s){return s<60?s+" sek":Math.round(s/60)+" min"}
 function smartCats(){return Object.keys(CATS).filter(k=>(weights[k]||0)>0.3)}
 function wpick(arr,wf){const ws=arr.map(wf);let r=Math.random()*ws.reduce((a,b)=>a+b,0);for(let i=0;i<arr.length;i++){r-=ws[i];if(r<=0)return arr[i]}return arr[arr.length-1]}
 function queriesFor(c){return [...(QUERIES[c]||[]),...(dynQ[c]||[])]}
-function durParam(){ if(lenPref==="short") return "short"; if(lenPref==="long") return Math.random()<.5?"medium":"long"; return Math.random()<.55?"short":"medium" }
+function durParam(){ if(lenPref==="short") return "short"; if(lenPref==="long") return Math.random()<.5?"medium":"long"; return Math.random()<.75?"short":"medium" }
 async function ytFetch(path,params){
   const u="https://www.googleapis.com/youtube/v3/"+path+"?"+new URLSearchParams({...params,key:apiKey});
   const r=await fetch(u); const j=await r.json(); if(j.error){ dlog("API-FEJL "+path+": "+j.error.message); throw new Error(j.error.message||"API-fejl") } dlog("API "+path+" ok ("+(j.items||[]).length+")"); return j;
@@ -843,25 +843,25 @@ function langOK(x,lenient){
 function regionOK(cd){ const r=cd&&cd.regionRestriction; if(!r) return true; if(r.blocked&&r.blocked.includes("DK")) return false; if(r.allowed&&!r.allowed.includes("DK")) return false; return true }
 function mapVideos(v,lenient){
   return v.items.filter(x=>x.status?x.status.embeddable!==false:true).map(x=>({v:x.id,t:x.snippet.title,al:x.snippet.defaultAudioLanguage||"",dl:x.snippet.defaultLanguage||"",n:x.snippet.channelTitle,ch:x.snippet.channelId,views:+(x.statistics.viewCount||0),likes:+(x.statistics.likeCount||0),sec:isoDur(x.contentDetails.duration),reg:regionOK(x.contentDetails)}))
-    .filter(x=>x.reg && langOK(x,lenient) && x.views>=(x.sec<=70?(x.al.startsWith("da")?20000:150000):(x.al.startsWith("da")?5000:40000)) && !BAD.test(x.t) && x.sec>=15 && x.sec<=(lenPref==="long"?5400:1500));
+    .filter(x=>x.reg && langOK(x,lenient) && x.views>=((x.sec<=70||/#shorts?\b/i.test(x.t))?(x.al.startsWith("da")?20000:100000):(x.al.startsWith("da")?5000:40000)) && !BAD.test(x.t) && x.sec>=15 && x.sec<=(lenPref==="long"?5400:1500));
 }
 let knownCh=LS.get("knownch",{});   // kategori -> {kanalId: score}
 function addKnown(c,items){ const k=knownCh[c]=knownCh[c]||{}; items.forEach(x=>{ k[x.ch]=(k[x.ch]||0)+1 }); const ent=Object.entries(k).sort((a,b)=>b[1]-a[1]).slice(0,40); knownCh[c]=Object.fromEntries(ent); LS.set("knownch",knownCh) }
 function quotaBlocked(){ return LS.get("qblock","")===today2 || quota.n>=40 }
 function pushCand(c,items,q){
   const fresh=items.filter(x=>!vseen.has(x.v)&&(chAff[x.ch]||0)>-3&&!(cand[c]||[]).some(y=>y.v===x.v));
-  fresh.forEach(x=>{x.c=c;x.q=q;x.y="yt";x.short=x.sec<=70;x.d=fmtN(x.views)+" visninger · "+fmtD(x.sec)});
+  fresh.forEach(x=>{x.c=c;x.q=q;x.y="yt";x.short=x.sec<=62||(x.sec<=185&&/#shorts?\b/i.test(x.t));x.d=fmtN(x.views)+" visninger · "+fmtD(x.sec)});
   (cand[c]=cand[c]||[]).push(...fresh); return fresh.length;
 }
 async function fetchQuery(c,q){
-  const dur=durParam(), ck="v3|"+q+"|"+dur;
+  const dur=durParam(), wantShorts=dur==="short"&&Math.random()<0.65, ck="v3|"+q+(wantShorts?"|#s":"")+"|"+dur;
   let items=null;
   if(qcache[ck] && Date.now()-qcache[ck].t<7*864e5) items=qcache[ck].items;
   else {
     if(quotaBlocked()) return fetchChannel(c);
     quota.n++; LS.set("quota",quota);
     const isDa=q.startsWith("da:");
-    let s; try{ s=await ytFetch("search",{part:"snippet",type:"video",videoEmbeddable:"true",maxResults:"50",q:isDa?q.slice(3):q,videoDuration:isDa&&dur==="short"?"any":dur,safeSearch:"moderate",relevanceLanguage:isDa?"da":"en",regionCode:"DK"}) }
+    let s; try{ s=await ytFetch("search",{part:"snippet",type:"video",videoEmbeddable:"true",maxResults:"50",q:(isDa?q.slice(3):q)+(wantShorts?" #shorts":""),videoDuration:isDa&&dur==="short"?"any":dur,safeSearch:"moderate",relevanceLanguage:isDa?"da":"en",regionCode:"DK"}) }
     catch(e){ if(/quota/i.test(e.message)){ LS.set("qblock",today2); dlog("Søge-kvote brugt op i dag → henter fra kendte kanaler"); return fetchChannel(c) } throw e }
     const ids=s.items.map(x=>x.id.videoId).filter(Boolean); if(!ids.length) return;
     const v=await ytFetch("videos",{part:"snippet,contentDetails,statistics,status",id:ids.join(",")});
@@ -911,7 +911,7 @@ function smartNext(){
   const i=Math.floor(Math.random()*Math.min(3,L.length)); const it=L.splice(i,1)[0];
   vseen.add(it.v); return it;
 }
-function score(x){return Math.log10(x.views+10)*(1+Math.min(x.likes/(x.views+1)*20,1))*(qw[x.q]??1)*Math.max(0.2,1+(chAff[x.ch]||0)*0.25)}
+function score(x){return (x.short?2.5:1)*Math.log10(x.views+10)*(1+Math.min(x.likes/(x.views+1)*20,1))*(qw[x.q]??1)*Math.max(0.2,1+(chAff[x.ch]||0)*0.25)}
 function learn(card,kind,frac){
   const c=card.dataset.c, q=card.dataset.q, ch=card.dataset.ch;
   const up=(o,k,f,min=0.15,max=6)=>{if(k)o[k]=Math.min(max,Math.max(min,(o[k]??1)*f))};
