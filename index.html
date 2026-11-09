@@ -132,7 +132,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 <!-- App -->
 <div id="app" class="hidden">
   <div class="top">
-    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v13</small></div>
+    <div class="logo">Klog<span>Feed</span> <small style="font-size:11px;color:#a9a6b3;font-family:Inter,sans-serif">v14</small></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
       <button class="tbtn" id="soundBtn" aria-label="Lyd">🔊</button>
@@ -617,10 +617,10 @@ const ytio=new IntersectionObserver(es=>es.forEach(e=>{
 let soundOn=LS.get("sound",true), touched=false;
 function curCard(){ const f=document.getElementById("feed"); return f.children[Math.round(f.scrollTop/f.clientHeight)] }
 function unmuteCurrent(){ const c=curCard(); if(!c) return;
-  if(c._player){ try{ c._player.unMute(); c._player.setVolume(100); if(c._player.getPlayerState()!==1) c._player.playVideo() }catch(e){} }
+  if(c._player){ try{ if(c._player.isMuted()){ c._player.unMute(); c._player.setVolume(100) } }catch(e){} }
   const v=c.querySelector("video"); if(v){ v.muted=false; v.play().catch(()=>{}) } }
 ["touchstart","click"].forEach(ev=>document.addEventListener(ev,()=>{ if(!touched){ touched=true; dlog("Første tryk – lyd må nu tændes"); if(soundOn) unmuteCurrent() } },{passive:true,capture:true}));
-document.getElementById("feed").addEventListener("touchend",()=>{ if(soundOn) setTimeout(unmuteCurrent,400) },{passive:true});
+let _ut=null; document.getElementById("feed").addEventListener("touchend",()=>{ if(!soundOn) return; clearTimeout(_ut); _ut=setTimeout(unmuteCurrent,600) },{passive:true});
 function setSound(on){ soundOn=on; LS.set("sound",on); if(on) unmuteCurrent(); const b=document.getElementById("soundBtn"); if(b) b.textContent=on?"🔊":"🔇";
   document.querySelectorAll(".card.yt").forEach(c=>{ if(c._player){ try{ on?c._player.unMute():c._player.mute() }catch(e){} } });
   document.querySelectorAll(".card.film video").forEach(v=>v.muted=!on); }
@@ -629,8 +629,9 @@ new MutationObserver(()=>document.querySelectorAll(".card.yt:not([data-o])").for
 
 $("#feed").addEventListener("click",e=>{
   const t=e.target.closest(".card.yt .tap"); if(!t) return; const c=t.closest(".card"); const p=c._player;
+  const now=Date.now(); if(c._lastTap&&now-c._lastTap<350) return; c._lastTap=now;
   if(p&&p.getPlayerState){ try{ if(p.getPlayerState()===1){ p.pauseVideo(); c.classList.add("paused") } else { if(soundOn){p.unMute();p.setVolume(100)} p.playVideo(); c.classList.remove("paused") } }catch(err){} }
-  else { const f=c.querySelector("iframe.plain"); if(f) f.src=f.src.replace("mute=1","mute=0"); else startPlayer(c) }
+  else if(!c.querySelector("iframe.plain")) startPlayer(c);
 });
 setInterval(()=>{ const c=curCard(); if(!c||!c._player||!c._player.getCurrentTime) return;
   try{ const d=c._player.getDuration(), t=c._player.getCurrentTime(); const i=c.querySelector(".vprog i"); if(i&&d) i.style.width=(t/d*100)+"%";
