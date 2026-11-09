@@ -2,6 +2,7 @@
 <html lang="da">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>KlogFeed</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -546,6 +547,7 @@ new MutationObserver(()=>document.querySelectorAll(".card.film:not([data-o])").f
   v.addEventListener("ended",()=>next(c));
 })).observe(document.getElementById("feed"),{childList:true});
 
+const BAD=/trailer|teaser|anniversary|announce|giveaway|sale\b|merch|livestream|\blive\b|q&a|\bgame\b|gameplay|master of command|fire & maneuver|patreon|sponsor|update video|channel update|reveal/i;
 let ytReady=false; const ytQueue=[];
 window.onYouTubeIframeAPIReady=()=>{ytReady=true;ytQueue.splice(0).forEach(f=>f())};
 (function(){const t=document.createElement("script");t.src="https://www.youtube.com/iframe_api";document.head.appendChild(t)})();
@@ -555,7 +557,11 @@ function startPlayer(c){
   const vars={autoplay:1,mute:soundOn?0:1,playsinline:1,rel:0,modestbranding:1,controls:1};
   const opts={host:"https://www.youtube-nocookie.com",width:"100%",height:"100%",playerVars:vars,events:{
     onReady:e=>{ if(soundOn)e.target.unMute(); else e.target.mute(); e.target.playVideo(); fr.querySelector(".ph")&&(fr.querySelector(".ph").style.display="none") },
-    onStateChange:e=>{ if(e.data===0) next(c) },
+    onStateChange:e=>{
+      if(e.data===1){ try{ const t=(e.target.getVideoData().title||"");
+        if(BAD.test(t)){ if(c.dataset.u) e.target.nextVideo(); else next(c) }
+        else { const h=c.querySelector(".meta h2"); if(c.dataset.u&&h&&t) h.textContent=t } }catch(err){} }
+      if(e.data===0) next(c) },
     onError:()=>{ fr.querySelector(".ph").textContent="Videoen kunne ikke afspilles – swipe videre"; }
   }};
   if(c.dataset.v) opts.videoId=c.dataset.v;
