@@ -71,6 +71,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
 .timer{font-size:12px;font-weight:600;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.4);backdrop-filter:blur(6px);color:var(--mut)}
 .card.yt{padding:calc(var(--safe-t) + 64px) 0 calc(var(--safe-b) + 24px);justify-content:center;background:#07070b}
 .card.yt .frame{position:relative;width:100%;aspect-ratio:16/9;background:#000}
+.card.yt .mount,.card.yt .frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .card.yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .card.yt .meta{padding:18px 78px 0 18px}
 .card.yt .meta .pill{display:inline-block}
@@ -116,6 +117,7 @@ h1,h2,.serif{font-family:Fraunces,Georgia,serif}
     <div class="logo">Klog<span>Feed</span></div>
     <div class="tbtns">
       <span class="timer" id="timer"></span>
+      <button class="tbtn" id="soundBtn" aria-label="Lyd">🔇</button>
       <button class="tbtn" id="addBtn" aria-label="Tilføj video">＋</button>
       <button class="tbtn" id="savedBtn" aria-label="Gemte">🔖</button>
       <button class="tbtn" id="profBtn" aria-label="Profil">⚙︎</button>
@@ -422,7 +424,8 @@ function typeWeight(y){
   if(y==="f") w*= g.includes("klog")?1.3:1;
   return w;
 }
-function pool(){return [...CONTENT, ...FILMS, ...YT, ...custom.map(v=>({...v,y:"v"}))]}
+function ytId(u){const m=String(u).match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/);return m?m[1]:null}
+function pool(){return [...FILMS, ...YT, ...custom.map(v=>ytId(v.u)?{...v,y:"yt",v:ytId(v.u),n:"Din video",d:v.b||""}:{...v,y:"v"})]}
 function pick(){
   let items=pool().filter(it=>it.u||!seen.has(id(it)));
   if(items.length<3){seen=new Set();items=pool()}
@@ -449,8 +452,8 @@ function cardHTML(it){
     const src=it.v?`https://www.youtube-nocookie.com/embed/${it.v}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1`
       :`https://www.youtube-nocookie.com/embed/videoseries?list=UU${it.u.slice(2)}&index=${1+Math.floor(Math.random()*40)}&autoplay=1&mute=1&playsinline=1&rel=0`;
     const link=it.v?`https://www.youtube.com/watch?v=${it.v}`:`https://www.youtube.com/channel/${it.u}/videos`;
-    return `<section class="card yt" data-k="${esc(id(it))}" data-c="${it.c}" data-src="${esc(src)}">
-      <div class="frame"><div class="ph">▶ Indlæser video…</div></div>
+    return `<section class="card yt" data-k="${esc(id(it))}" data-c="${it.c}" data-src="${esc(src)}" data-v="${it.v||""}" data-u="${it.u||""}">
+      <div class="frame"><div class="ph">▶ Indlæser video…</div><div class="mount"></div></div>
       <div class="meta"><span class="pill">${C.e} ${C.n} · ${it.v?"Video":"Fra kanalen"}</span>
         <h2 class="serif">${esc(it.t)}</h2><p>${esc(it.n)} · ${esc(it.d||"")}</p>
         <a class="cta" style="margin-top:14px;padding:9px 13px;font-size:13px" href="${link}" target="_blank" rel="noopener">Åbn på YouTube</a></div>
@@ -461,7 +464,7 @@ function cardHTML(it){
       </div></section>`;
   }
   if(it.y==="film") return `<section class="card film" data-k="${esc(id(it))}" data-c="${it.c}">
-    <video src="${esc(it.src)}" playsinline muted loop preload="metadata"></video>
+    <video src="${esc(it.src)}" playsinline muted preload="metadata"></video>
     <button class="sound">🔇 Tryk for lyd</button><div class="vprog"><i></i></div>
     <div class="side">
       <button data-a="like"><span class="ic">👍</span>Mere</button>
@@ -528,7 +531,6 @@ $("#feed").addEventListener("click",e=>{
 function next(card){const f=$("#feed");f.scrollTo({top:card.offsetTop+f.clientHeight,behavior:"smooth"})}
 
 /* ================== Video-afspilning ================== */
-let soundOn=false;
 const io=new IntersectionObserver(es=>es.forEach(e=>{
   const v=e.target.querySelector("video"); if(!v)return;
   if(e.isIntersecting&&e.intersectionRatio>0.6){v.muted=!soundOn;v.currentTime=0;v.play().catch(()=>{v.muted=true;v.play().catch(()=>{})})}
@@ -538,17 +540,38 @@ new MutationObserver(()=>document.querySelectorAll(".card.film:not([data-o])").f
   c.dataset.o=1; io.observe(c); const v=c.querySelector("video"), bar=c.querySelector(".vprog i"), sb=c.querySelector(".sound");
   v.addEventListener("timeupdate",()=>{bar.style.width=(v.currentTime/v.duration*100||0)+"%"});
   const upd=()=>sb.textContent=v.muted?"🔇 Tryk for lyd":"🔊 Lyd til";
-  sb.onclick=e=>{e.stopPropagation();soundOn=v.muted;v.muted=!soundOn;if(v.paused)v.play().catch(()=>{});upd()};
+  sb.onclick=e=>{e.stopPropagation();setSound(v.muted);if(v.paused)v.play().catch(()=>{});upd()};
   v.onclick=()=>{v.paused?v.play().catch(()=>{}):v.pause()};
   v.addEventListener("volumechange",upd);
+  v.addEventListener("ended",()=>next(c));
 })).observe(document.getElementById("feed"),{childList:true});
 
+let ytReady=false; const ytQueue=[];
+window.onYouTubeIframeAPIReady=()=>{ytReady=true;ytQueue.splice(0).forEach(f=>f())};
+(function(){const t=document.createElement("script");t.src="https://www.youtube.com/iframe_api";document.head.appendChild(t)})();
+function startPlayer(c){
+  if(c._player) { try{ soundOn?c._player.unMute():c._player.mute(); c._player.playVideo() }catch(e){} return }
+  const fr=c.querySelector(".frame"); let m=fr.querySelector(".mount"); if(!m){m=document.createElement("div");m.className="mount";fr.appendChild(m)}
+  const vars={autoplay:1,mute:soundOn?0:1,playsinline:1,rel:0,modestbranding:1,controls:1};
+  const opts={host:"https://www.youtube-nocookie.com",width:"100%",height:"100%",playerVars:vars,events:{
+    onReady:e=>{ if(soundOn)e.target.unMute(); else e.target.mute(); e.target.playVideo(); fr.querySelector(".ph")&&(fr.querySelector(".ph").style.display="none") },
+    onStateChange:e=>{ if(e.data===0) next(c) },
+    onError:()=>{ fr.querySelector(".ph").textContent="Videoen kunne ikke afspilles – swipe videre"; }
+  }};
+  if(c.dataset.v) opts.videoId=c.dataset.v;
+  else { vars.listType="playlist"; vars.list="UU"+c.dataset.u.slice(2); vars.index=Math.floor(Math.random()*40) }
+  c._player=new YT.Player(m,opts);
+}
+function stopPlayer(c){ if(c._player){ try{c._player.destroy()}catch(e){} c._player=null; const fr=c.querySelector(".frame"); fr.innerHTML='<div class="ph">▶ Video</div><div class="mount"></div>' } }
 const ytio=new IntersectionObserver(es=>es.forEach(e=>{
-  const c=e.target, fr=c.querySelector(".frame");
-  if(e.isIntersecting&&e.intersectionRatio>0.6){
-    if(!fr.querySelector("iframe")){fr.innerHTML=`<iframe src="${c.dataset.src}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`}
-  } else if(!e.isIntersecting && fr.querySelector("iframe")){fr.innerHTML='<div class="ph">▶ Video</div>'}
+  const c=e.target;
+  if(e.isIntersecting&&e.intersectionRatio>0.6){ ytReady?startPlayer(c):ytQueue.push(()=>startPlayer(c)) }
+  else if(!e.isIntersecting) stopPlayer(c);
 }),{threshold:[0,0.6]});
+let soundOn=false;
+function setSound(on){ soundOn=on; const b=document.getElementById("soundBtn"); if(b) b.textContent=on?"🔊":"🔇";
+  document.querySelectorAll(".card.yt").forEach(c=>{ if(c._player){ try{ on?c._player.unMute():c._player.mute() }catch(e){} } });
+  document.querySelectorAll(".card.film video").forEach(v=>v.muted=!on); }
 new MutationObserver(()=>document.querySelectorAll(".card.yt:not([data-o])").forEach(c=>{c.dataset.o=1;ytio.observe(c)}))
   .observe(document.getElementById("feed"),{childList:true});
 
@@ -559,6 +582,8 @@ setInterval(()=>{
   const m=Math.floor(usage.s/60);
   $("#timer").textContent=profile.limit?`${m}/${profile.limit} min`:`${m} min`;
 },1000);
+
+document.getElementById("soundBtn").onclick=()=>setSound(!soundOn);
 
 /* ================== Sheets ================== */
 function openSheet(h){$("#panel").innerHTML=h;$("#sheet").classList.remove("hidden")}
@@ -572,7 +597,7 @@ $("#savedBtn").onclick=()=>{
 };
 
 $("#addBtn").onclick=()=>{
-  openSheet(`<h3>Tilføj din egen video</h3><p class="sub">Har du fundet en god dokumentar eller video? Indsæt linket, så dukker den op i dit feed.</p>
+  openSheet(`<h3>Tilføj din egen video</h3><p class="sub">Indsæt et YouTube-link, så afspilles videoen direkte i dit feed.</p>
    <form id="addForm">
     <label>Link (YouTube, DR TV, osv.)</label><input id="aU" type="url" placeholder="https://youtube.com/watch?v=..." required>
     <label>Titel</label><input id="aT" placeholder="Fx ’Romerrigets fald’" required>
